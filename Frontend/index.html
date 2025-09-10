@@ -21,5 +21,23 @@
   </div>
 
   <script src="js/auth.js"></script>
+  <script type="module">
+  import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+
+  const token = localStorage.getItem("token"); // token saved after login
+
+  const socket = io("http://localhost:5000", {
+    auth: { token }
+  });
+
+  socket.on("connect", () => {
+    console.log("✅ Connected as", socket.id);
+  });
+
+  socket.on("connect_error", (err) => {
+    console.error("❌ connect_error:", err.message);
+  });
+</script>
+
 </body>
 </html>

@@ -6,14 +6,97 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <style>
-    #chatBox { height: 60vh; overflow-y: auto; background:#fff; padding:12px; border-radius:6px; border:1px solid #ddd; }
+    #chatBox { height: 75vh; overflow-y: auto; background:#fff; padding:12px; border-radius:6px; border:1px solid #ddd; }
+    /* unread count badge shown beside user name */
+.unread-badge {
+  background: #dc3545;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 7px;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+}
+/* unread-chats summary badge (small pill beside "All Users") */
+.chats-unread-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #333;
+  margin-left: 8px;
+}
+.chats-unread-count {
+  background: #0d6efd;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+  min-width: 26px;
+  text-align: center;
+  box-sizing: border-box;
+  display: inline-block;
+}
+.chats-unread-summary.hidden { display: none; }
+
+
+/* hide when count is zero (we toggle display via JS) */
+.unread-badge.hidden { display: none !important; }
+
     .msg-right { text-align:right; margin-bottom:8px; }
     .msg-left  { text-align:left; margin-bottom:8px; }
-    .msg-bubble { display:inline-block; padding:8px 12px; border-radius:12px; max-width:70%; }
-    .msg-sent { background:#0d6efd; color:white; }
-    .msg-recv { background:#e9ecef; color:#212529; }
+    .msg-bubble { display:inline-block; padding:8px 8px; border-radius:12px; max-width:70%; }
+    .msg-sent { background:#a4e7eb; color:rgb(3, 0, 0); }
+    .msg-recv { background:#a4e7eb; color:#02080d; }
     img.chat-image { max-width:220px; border-radius:8px; display:block; margin-top:6px; }
       /* Lightbox modal styles (replace your existing .chat-lightbox rules) */
+      /* Normal message bubble */
+.message-bubble {
+  background-color: #e5e5ea; 
+  color: #000;
+  border-radius: 12px;
+  padding: 8px 12px;
+  max-width: 70%;
+  display: inline-block;
+  margin: 5px 0;
+}
+.unread-badge {
+  background: #dc3545;   /* red */
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 50%;
+  padding: 2px 6px;
+  margin-left: 6px;
+}
+
+
+/* Sender bubble (example for right side) */
+.message-bubble.sent {
+  background-color: #8ce0f3;
+  color: #fff;
+  margin-left: auto;
+}
+
+/* Selection mode container */
+.message-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Checkbox only */
+.message-select-wrapper input[type="checkbox"] {
+  margin: 0;
+}
+
 .chat-lightbox {
   position: fixed;
   inset: 0;
@@ -130,8 +213,8 @@
 }
 /* optional - keeps sizing consistent in your .avatar container */
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   overflow: hidden;
   display: inline-grid;
@@ -152,13 +235,6 @@
 }
 
 
-/* .avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #ccc;
-}*/
 
 .avatar img {
   width: 100%;
@@ -175,6 +251,27 @@
 #profileAvatarPreview .default-svg {
   width: 100%;
   height: 100%;
+}
+
+/* dropdown card tweaks */
+.custom-dropdown .list-group-item { cursor: pointer; }
+.custom-dropdown .list-group-item:hover { background:#f8f9fa; }
+
+/* message checkbox styling */
+.msg-checkbox {
+  margin-right: 8px;
+  vertical-align: middle;
+  transform: translateY(-1px);
+}
+
+/* when select mode is active, shrink bubble width to fit checkbox */
+.select-mode .msg-bubble { max-width: calc(120% - 70px); }
+
+/* show checkboxes container (we inject checkbox wrappers) */
+.checkbox-container {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
 }
 
   </style>
@@ -231,9 +328,40 @@
     </div>
   </div>
 </div>
-
-
   <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>ChatApp</h3>
+
+    <!-- Header right area: avatar + three-dots menu -->
+    <div class="me-section" style="align-items:center; gap:8px;">
+      <div id="meLabel" class="avatar" aria-label="My profile" title="Open profile" style="cursor:pointer"></div>
+
+      <!-- three-dots button -->
+      <div id="threeDotsWrap" style="position:relative;">
+        <button id="threeDotsBtn" class="btn btn-light btn-sm" aria-expanded="false" aria-label="Menu">⋮</button>
+
+        <!-- custom dropdown (vanilla JS) -->
+        <div id="threeDotsDropdown" class="custom-dropdown" style="display:none; position:absolute; right:0; top:36px; min-width:160px; z-index:2000;">
+          <div class="card shadow-sm">
+            <div class="list-group list-group-flush">
+              <button class="list-group-item list-group-item-action" id="menuCloseChat">Close chat</button>
+              <button class="list-group-item list-group-item-action" id="menuDeleteChat">Delete chat</button>
+              <button class="list-group-item list-group-item-action" id="menuSelectMessages">Select messages</button>
+              <button class="list-group-item list-group-item-action text-danger" id="menuLogout">Logout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delete Selected toolbar (hidden by default) -->
+      <div id="selectToolbar" style="display:none; align-items:center; gap:8px;">
+        <button id="cancelSelectBtn" class="btn btn-sm btn-outline-secondary">Cancel</button>
+        <button id="deleteSelectedBtn" class="btn btn-sm btn-danger">Delete Selected</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>ChatApp</h3>
    
     <div class="me-section">
@@ -241,7 +369,7 @@
   <button id="logoutBtn">Logout</button>
 </div>
 
-  </div>
+  </div> -->
 
   <div class="row">
     <div class="col-md-4 mb-3">
@@ -269,6 +397,7 @@
   <!-- Socket.io client -->
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="js/home.js"></script>
+  <script src="js/header-menu.js"></script>
   <!-- Image lightbox -->
 <div id="chatLightbox" class="chat-lightbox" aria-hidden="true" style="display:none;">
   <div class="lb-inner" role="dialog" aria-modal="true">

@@ -21,4 +21,8 @@ const messageSchema = new mongoose.Schema({
   read:       { type: Boolean, default: false }
 }, { timestamps: true });
 
+// 🔑 Add indexes here, before exporting the model
+messageSchema.index({ senderId: 1, receiverId: 1, read: 1 });
+messageSchema.index({ receiverId: 1, read: 1 });
+
 module.exports = mongoose.model("Message", messageSchema);
