@@ -26,6 +26,45 @@ let currentChatUser = null;
 
 // ---------- DEBUG: log incoming socket events ----------
 window.socket = socket; // expose for console
+// socket.on("connect", () => {
+//   console.log("socket connected", socket.id);
+//   const myId = String(user._id ?? user.id);  // normalize here
+//   socket.emit("user:online", { userId: myId });
+
+//   // socket.emit("user:online", { userId: String(user._id ?? user.id) });
+// });
+// create socket once (keep existing API_BASE/SOCKET_BASE above)
+// const socket = io(SOCKET_BASE || API_BASE, { auth: { token } });
+window.socket = socket; // expose for debug
+
+console.log('socket object created ->', socket);
+
+// install onAny if available (optional debug)
+if (typeof socket.onAny === 'function') {
+  socket.onAny((event, ...args) => console.log('SOCKET EVENT (onAny):', event, args));
+  console.log('onAny installed - now logging all incoming socket events');
+}
+
+// SINGLE connect handler (normalize id here and emit string)
+socket.on('connect', () => {
+  console.log('socket connected, id=', socket.id);
+
+  // Normalize user id from user._id or user.id -> string -> trimmed
+  const uid = String(user?._id ?? user?.id ?? '').trim();
+
+  if (uid) {
+    console.log('emitting user:online with userId=', uid);
+    socket.emit('user:online', { userId: uid });
+  } else {
+    console.warn('socket connect: no user id found; not emitting user:online', user);
+  }
+});
+
+// lifecycle logging (single handlers)
+socket.on('disconnect', (reason) => console.log('socket disconnected, reason=', reason));
+socket.on('connect_error', (err) => console.error('socket connect_error', err));
+socket.on('error', (err) => console.error('socket error', err));
+
 
 console.log('socket object created ->', socket);
 
@@ -138,6 +177,125 @@ socket.on('message:receive', (msg) => {
 
   } catch (err) {
     console.error('message:receive handler error', err);
+  }
+});
+// ---------- Robust notification handlers (paste after socket creation) ----------
+
+// tiny toast UI (vanilla)
+function ensureToastContainer() {
+  let cont = document.getElementById('toastContainer');
+  if (!cont) {
+    cont = document.createElement('div');
+    cont.id = 'toastContainer';
+    cont.style.position = 'fixed';
+    cont.style.right = '16px';
+    cont.style.bottom = '16px';
+    cont.style.zIndex = 2147483647;
+    cont.style.maxWidth = '360px';
+    document.body.appendChild(cont);
+  }
+  return cont;
+}
+function showInAppToast(title, body, onClick) {
+  const container = ensureToastContainer();
+  const t = document.createElement('div');
+  t.className = 'toast shadow-sm';
+  t.style.background = '#fff';
+  t.style.borderRadius = '8px';
+  t.style.padding = '10px';
+  t.style.marginTop = '8px';
+  t.style.cursor = 'pointer';
+  t.innerHTML = `<div style="font-weight:600">${escapeHtml(title)}</div><div style="font-size:13px;color:#333">${escapeHtml(body)}</div>`;
+  container.appendChild(t);
+  t.addEventListener('click', () => { try { onClick && onClick(); } catch{}; t.remove(); });
+  setTimeout(() => t.remove(), 6000);
+}
+
+// Desktop notification helper (asks permission on first use)
+async function ensureNotificationPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  try { const p = await Notification.requestPermission(); return p === 'granted'; } catch { return false; }
+}
+
+// Normalize unread:update payloads and update UI
+socket.on('unread:update', (data) => {
+  try {
+    // Accept either shape:
+    // { userId, count }  OR  { fromUserId, unreadCount } OR { fromUserId, count } OR { userId, unreadCount }
+    let uid = data?.userId ?? data?.fromUserId ?? data?.from ?? data?.senderId ?? '';
+    let count = data?.count ?? data?.unreadCount ?? data?.value ?? 0;
+    uid = uid ? String(uid) : '';
+    count = Number(count || 0);
+
+    if (!uid) {
+      console.warn('unread:update received with no user id', data);
+      return;
+    }
+
+    // update our normalized store and badges
+    window._unreadCounts = window._unreadCounts || {};
+    window._unreadCounts[uid] = count;
+    updateUnreadCount(uid, count);
+
+  } catch (err) {
+    console.error('unread:update handler error', err, data);
+  }
+});
+
+// Initial aggregated counts map
+socket.on('unread_counts_update', (countsObj) => {
+  try {
+    window._unreadCounts = window._unreadCounts || {};
+    Object.keys(countsObj || {}).forEach(k => {
+      window._unreadCounts[String(k)] = Number(countsObj[k] || 0);
+      updateUnreadCount(String(k), Number(countsObj[k] || 0));
+    });
+  } catch (err) {
+    console.error('unread_counts_update handler error', err);
+  }
+});
+
+// High-level new-message notification (show toast + desktop)
+socket.on('notification:new_message', (payload) => {
+  try {
+    // Expected payload from server: { type:'message', id, from, to, text, createdAt, ... }
+    const fromId = String(payload?.from ?? payload?.senderId ?? '');
+    const text = String(payload?.text ?? payload?.body ?? 'New message');
+    const fromName = payload?.fromName ?? payload?.fromLabel ?? (window._backendUserById && window._backendUserById[fromId] && (window._backendUserById[fromId].username || window._backendUserById[fromId].name)) ?? 'New message';
+
+    // increment unread locally (server will also send unread:update soon, but this gives immediate UI feedback)
+    if (fromId) incrementUnread(fromId, 1);
+
+    // in-app toast; clicking opens chat
+    showInAppToast(fromName, text, () => {
+      const backend = window._backendUserById && window._backendUserById[fromId];
+      if (backend) startChat(backend);
+      else openChatWithUser(fromId);
+      clearUnread(fromId);
+      // inform server that user opened chat (optional)
+      socket.emit('messages:markRead', { userId: String(user.id || user._id), peerId: String(fromId) });
+    });
+
+    // desktop notification
+    ensureNotificationPermission().then(granted => {
+      if (!granted) return;
+      try {
+        const n = new Notification(fromName, { body: text, tag: `msg-${payload?.id || Date.now()}`, data: payload });
+        n.onclick = () => {
+          window.focus();
+          const backend = window._backendUserById && window._backendUserById[fromId];
+          if (backend) startChat(backend);
+          else openChatWithUser(fromId);
+          clearUnread(fromId);
+          n.close();
+        };
+      } catch (err) { console.warn('desktop notification failed', err); }
+    });
+
+  } catch (err) {
+    console.error('notification:new_message handler error', err, payload);
   }
 });
 

@@ -83,8 +83,7 @@ app.use(cors({
 
 
 
-// Routes
-app.use('/api/auth', require('./routes/auth'));
+
 app.use("/api/auth", authRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/reset", resetRoutes);
@@ -182,65 +181,132 @@ io.use((socket, next) => {
   }
 });
 
+// helper: emit to a user's room (works for multiple devices)
+function sendToUser(userId, event, payload) {
+  if (!userId) return;
+  try {
+    io.to(String(userId)).emit(event, payload);
+    console.log(`Emitted ${event} to user ${String(userId)}`);
+  } catch (err) {
+    console.error('sendToUser error', err);
+  }
+}
+
+
+
+
+// io.on("connection", (socket) => {
+//   console.log("User connected:", socket.id, 'userId=', socket.userId);
+
+//   // Mark messages as read when the user opens a chat with `otherUserId`
+//   socket.on('messages:markRead', async (data, callback) => {
+//     try {
+//       const me = socket.userId;
+//       const other = data?.otherUserId;
+//       if (!me || !other) return callback?.({ ok: false, error: 'Missing ids' });
+
+//       const res = await Message.updateMany(
+//         { senderId: mongoose.Types.ObjectId(other), receiverId: mongoose.Types.ObjectId(me), read: false },
+//         { $set: { read: true } }
+//       );
+
+      
+// sendToUser(me, 'unread:update', { fromUserId: String(other), unreadCount: 0 });
+
+// // optionally notify the other party that I read their messages
+// sendToUser(other, 'messages:readBy', { conversationWith: me, userId: me });
+
+//       callback?.({ ok: true, modified: res.modifiedCount ?? 0 });
+//     } catch (err) {
+//       console.error('messages:markRead error', err);
+//       callback?.({ ok: false, error: err.message || 'Server error' });
+//     }
+//   });
+
+//   // Send initial unread counts when user asks
+//   socket.on('request_unread_counts', async (userId) => {
+//     try {
+//       if (!userId) return socket.emit('unread_counts_update', {});
+//       const unreadCounts = await Message.aggregate([
+//         { $match: { receiverId: mongoose.Types.ObjectId(userId), read: false } },
+//         { $group: { _id: "$senderId", count: { $sum: 1 } } }
+//       ]);
+
+//       const countsObj = {};
+//       unreadCounts.forEach(item => { countsObj[String(item._id)] = item.count; });
+
+//       socket.emit('unread_counts_update', countsObj);
+//     } catch (err) {
+//       console.error('Error fetching unread counts:', err);
+//       socket.emit('unread_counts_update', {});
+//     }
+//   });
+
+//   // Other socket handlers (e.g. message sending) go here
+
+//   socket.on("disconnect", (reason) => {
+//     console.log("User disconnected", socket.id, 'userId=', socket.userId, 'reason=', reason);
+//     // optional cleanup if you stored connectedUsers map: delete connectedUsers[socket.userId]
+//   });
+// });
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id, 'userId=', socket.userId);
 
-    // Handle sending a message: persist, emit to recipient, and emit unread count
-  socket.on('message:send', async (data, callback) => {
+    socket.on("user:online", ({ userId }) => {
+    const room = String(userId).trim(); // normalize here
+    socket.userId = room;
+    socket.join(room);
+    console.log("user:online -> joined room", room, "socket.id=", socket.id);
+  });
+  // --- Helper within scope (optional) ---
+  // If you didn't add sendToUser globally, this uses global.io if present.
+  const emitToUser = (userId, event, payload) => {
     try {
-      const senderId = socket.userId;
-      const { receiverId, text, imageId } = data;
-
-      if (!receiverId || (!text && !imageId)) {
-        return callback?.({ ok: false, error: 'Invalid payload' });
+      if (!userId) return;
+      if (typeof sendToUser === 'function') {
+        return sendToUser(userId, event, payload);
       }
-
-      const messagePayload = {
-        senderId,
-        receiverId,
-        text: text || '',
-        read: false
-      };
-      if (imageId) {
-        messagePayload.imageId = mongoose.Types.ObjectId(imageId);
+      if (global.io) {
+        return global.io.to(String(userId)).emit(event, payload);
       }
-
-      const message = await Message.create(messagePayload);
-
-      // Emit the message to the recipient's room (works across devices/tabs)
-      io.to(String(receiverId)).emit('message:receive', {
-        _id: message._id,
-        senderId: String(senderId),
-        receiverId: String(receiverId),
-        text: message.text,
-        imageId: message.imageId,
-        read: message.read,
-        createdAt: message.createdAt
-      });
-
-      // Acknowledge sender (callback)
-      callback?.({ ok: true, msg: message });
-
-      // compute unread count for recipient FROM this sender and emit unread:update
-      const unreadFromSender = await getUnreadCount(senderId, receiverId);
-      io.to(String(receiverId)).emit('unread:update', {
-        fromUserId: String(senderId),
-        unreadCount: unreadFromSender
-      });
-
+      // fallback: emit to socket if same user
+      if (String(socket.userId) === String(userId)) socket.emit(event, payload);
     } catch (err) {
-      console.error('message:send error', err);
-      callback?.({ ok: false, error: err.message || 'Server error' });
+      console.error('emitToUser error', err);
+    }
+  };
+
+  // Request aggregated unread counts for the connected user
+  socket.on('request_unread_counts', async (userId) => {
+    try {
+      if (!userId) return socket.emit('unread_counts_update', {});
+      const unreadCounts = await Message.aggregate([
+        { $match: { receiverId: mongoose.Types.ObjectId(userId), read: false } },
+        { $group: { _id: "$senderId", count: { $sum: 1 } } }
+      ]);
+      const countsObj = {};
+      unreadCounts.forEach(item => { countsObj[String(item._id)] = item.count; });
+      socket.emit('unread_counts_update', countsObj);
+    } catch (err) {
+      console.error('Error fetching unread counts:', err);
+      socket.emit('unread_counts_update', {});
     }
   });
 
   // Mark messages as read when the user opens a chat with `otherUserId`
-  socket.on('messages:markRead', async (data, callback) => {
+  // Accepts either { otherUserId } or { userId, peerId } shapes; supports callback ack.
+  socket.on('messages:markRead', async (data = {}, callback) => {
     try {
-      const me = socket.userId;
-      const other = data.otherUserId;
-      if (!me || !other) return callback?.({ ok: false, error: 'Missing ids' });
+      // normalize
+      const me = socket.userId || String(data.userId || '');
+      const other = String(data.otherUserId || data.peerId || data.other || '');
+
+      if (!me || !other) {
+        const errPayload = { ok: false, error: 'Missing ids' };
+        if (typeof callback === 'function') return callback(errPayload);
+        return socket.emit('messages:markRead:error', errPayload);
+      }
 
       const res = await Message.updateMany(
         { senderId: mongoose.Types.ObjectId(other), receiverId: mongoose.Types.ObjectId(me), read: false },
@@ -248,50 +314,60 @@ io.on("connection", (socket) => {
       );
 
       // Notify this user's devices that unread from that sender is now 0
-      io.to(String(me)).emit('unread:update', { fromUserId: String(other), unreadCount: 0 });
+      emitToUser(me, 'unread:update', { fromUserId: String(other), unreadCount: 0 });
 
-      // Optional: inform other participant(s) that I read their messages
-      io.to(String(other)).emit('messages:readBy', { conversationWith: me, userId: me });
+      // Optionally inform other participant(s) that I read their messages
+      emitToUser(other, 'messages:readBy', { conversationWith: me, userId: me });
 
-      callback?.({ ok: true, modified: res.modifiedCount });
+      if (typeof callback === 'function') return callback({ ok: true, modified: res.modifiedCount ?? 0 });
+      return;
     } catch (err) {
       console.error('messages:markRead error', err);
-      callback?.({ ok: false, error: err.message });
+      if (typeof callback === 'function') return callback({ ok: false, error: err.message || 'Server error' });
     }
   });
 
-  // Example: receive a "message:send" from a client and forward to receiver
-  // socket.on("message:send", (data) => {
-  //   try {
-  //     // Basic validation
-  //     if (!data || !data.receiverId) {
-  //       console.warn('message:send missing receiverId', data);
-  //       return;
-  //     }
-
-  //     const receiverId = String(data.receiverId);
-  //     const msg = {
-  //       ...data,
-  //       senderId: socket.userId || data.senderId || null,
-  //       createdAt: new Date().toISOString()
-  //     };
-
-  //     // Emit to that receiver's room (works across devices/tabs)
-  //     io.to(receiverId).emit("message:receive", msg);
-
-  //     // Optionally ack sender
-  //     socket.emit('message:sent:ack', { ok: true, msg });
-  //   } catch (err) {
-  //     console.error('message:send handler error', err);
-  //   }
-  // });
+  // Example placeholder for other socket handlers (message sending etc.)
+  // socket.on('message:send', async (data) => { ... })
 
   socket.on("disconnect", (reason) => {
-    console.log("User disconnected", socket.id, 'reason=', reason);
-    // optional cleanup if you stored connectedUsers map: delete connectedUsers[socket.userId]
+    console.log("User disconnected", socket.id, 'userId=', socket.userId, 'reason=', reason);
   });
 });
 
+// server.js (or wherever io is created)
+io.use((socket, next) => {
+  try {
+    // token passed from client: io(API_BASE, { auth: { token } })
+    const token = socket.handshake?.auth?.token;
+    if (!token) return next();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET); // your JWT verify
+    socket.userId = String(decoded.id ?? decoded._id);
+  } catch (e) {
+    // optionally reject: next(new Error('auth error'));
+  }
+  next();
+});
+
+io.on('connection', (socket) => {
+  console.log('User connected', socket.id, 'userId=', socket.userId);
+  if (socket.userId) {
+    socket.join(String(socket.userId));
+    console.log('socket joined room', socket.userId);
+  }
+
+  socket.on('user:online', ({ userId }) => {
+    if (userId) {
+      socket.userId = String(userId);
+      socket.join(String(userId));
+      console.log('user:online -> joined room', userId);
+    }
+  });
+
+  socket.on('disconnect', reason => {
+    console.log('disconnect', socket.id, socket.userId, reason);
+  });
+});
 
 const PORT = process.env.PORT || 5000;
 
@@ -302,4 +378,40 @@ connectDB().then(() => {
 }).catch(err => {
   console.error('Could not start server due to DB error', err);
   process.exit(1);
+});
+io.on('connection', (socket) => {
+  console.log('Socket connected:', socket.id);
+
+  // Client will emit: socket.emit('user:online', { userId: '...' })
+  socket.on('user:online', (payload) => {
+    try {
+      // accept either payload.userId OR payload.id OR plain string payload
+      let userId = '';
+
+      if (!payload) {
+        userId = '';
+      } else if (typeof payload === 'string') {
+        userId = payload;
+      } else {
+        userId = payload.userId ?? payload.id ?? '';
+      }
+
+      userId = String(userId || '').trim();
+
+      if (!userId) {
+        console.warn('user:online received but no userId provided from socket', socket.id, 'payload=', payload);
+        // optionally emit back an error or request the client to resend correctly
+        return;
+      }
+
+      socket.join(userId);
+      console.log('user:online -> joined room', userId, 'socket.id=', socket.id);
+    } catch (err) {
+      console.error('user:online handler error', err);
+    }
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('Socket disconnected', socket.id, 'reason=', reason);
+  });
 });

@@ -1,7 +1,3 @@
-
-
-
-// auth.js (top)
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || "http://localhost:5000/api/auth";
 
 const regForm = document.getElementById("registerForm");

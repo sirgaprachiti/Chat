@@ -27,6 +27,7 @@ router.post("/send", auth, async (req, res) => {
     const { receiverId, text } = req.body;
     const msg = new Message({ senderId: req.user.id, receiverId, text });
     await msg.save();
+    
     res.json({ message: "Message sent", msg });
   } catch (err) {
     res.status(400).json({ error: "Failed to send message" });
