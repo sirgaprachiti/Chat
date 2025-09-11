@@ -254,7 +254,16 @@
   width: 100%;
   height: 100%;
 }
+#threeDotsBtn {
+    font-size: 24px;
+    color: rgb(56, 12, 231);           /* normal color */
+    transition: color 0.3s ease, background-color 0.3s ease;
+  }
 
+  #threeDotsBtn:hover {
+    color: rgb(38, 0, 255);             /* changes dot color */
+    background-color: #70f0cc; /* optional: button background change */
+  }
 /* avatar container used in list + navbar */
 .avatar {
   width: 45px;
@@ -380,7 +389,7 @@
 
       <!-- three-dots button -->
       <div id="threeDotsWrap" style="position:relative;">
-        <button id="threeDotsBtn" class="btn btn-light btn-sm" aria-expanded="false" aria-label="Menu">⋮</button>
+        <button id="threeDotsBtn" class="btn btn-light btn-xl" aria-expanded="false" aria-label="Menu">⋮</button>
 
         <!-- custom dropdown (vanilla JS) -->
         <div id="threeDotsDropdown" class="custom-dropdown" style="display:none; position:absolute; right:0; top:36px; min-width:160px; z-index:2000;">

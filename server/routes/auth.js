@@ -142,19 +142,58 @@ router.post('/login', async (req, res) => {
 
 
 // POST /api/auth/reset-request
+// router.post('/reset-request', async (req, res) => {
+//   try {
+//     const { email } = req.body;
+//     if (!email) return res.status(400).json({ error: 'Missing email' });
+
+//     const normalized = (email || '').toLowerCase().trim();
+//     const user = await User.findOne({ email: normalized });
+//     if (!user) {
+//       // don't reveal whether email exists — respond OK
+//       return res.json({ message: 'If the email exists, a reset link has been sent.' });
+//     }
+
+//     // make token, expiry (e.g. 1 hour)
+//     const rawToken = crypto.randomBytes(32).toString('hex');
+//     const hashed = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+//     user.passwordResetToken = hashed;
+//     user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+//     await user.save();
+
+//     try {
+//       await sendResetEmail(user.email, rawToken);
+//     } catch (err) {
+//       console.error('send reset email failed', err);
+//       // still respond success (don't leak internal errors)
+//     }
+
+//     return res.json({ message: 'If the email exists, a reset link has been sent.' });
+//   } catch (err) {
+//     console.error('reset-request error', err);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
+
+// backend: routes/auth.js (example)
+// const crypto = require('crypto');
+// assume User model and sendResetEmail are already imported/available
+
 router.post('/reset-request', async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Missing email' });
 
-    const normalized = (email || '').toLowerCase().trim();
+    const normalized = String(email).toLowerCase().trim();
     const user = await User.findOne({ email: normalized });
+
     if (!user) {
-      // don't reveal whether email exists — respond OK
-      return res.json({ message: 'If the email exists, a reset link has been sent.' });
+      // EXPLICIT: reveal that the email is not registered
+      return res.status(404).json({ error: 'This email is not registered.' });
     }
 
-    // make token, expiry (e.g. 1 hour)
+    // create token and expiry
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashed = crypto.createHash('sha256').update(rawToken).digest('hex');
 
@@ -166,15 +205,16 @@ router.post('/reset-request', async (req, res) => {
       await sendResetEmail(user.email, rawToken);
     } catch (err) {
       console.error('send reset email failed', err);
-      // still respond success (don't leak internal errors)
+      // We still return success: the action succeeded from the client's POV.
     }
 
-    return res.json({ message: 'If the email exists, a reset link has been sent.' });
+    return res.json({ message: 'Password reset link sent to your email.' });
   } catch (err) {
     console.error('reset-request error', err);
-    res.status(500).json({ error: 'Server error' });
+    return res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // POST /api/auth/reset (token + newPassword)
 router.post('/reset', async (req, res) => {
