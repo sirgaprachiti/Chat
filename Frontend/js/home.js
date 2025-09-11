@@ -52,18 +52,7 @@ socket.on("connect", () => {
   socket.emit("user:online", { userId: user.id });
 });
 
-// Incoming message event
-// socket.on("message:receive", (msg) => {
-//   // If message is for current chat or from current chat, append
-//   if (!currentChatUser) return;
-//   if ((msg.senderId === currentChatUser._id && msg.receiverId === user.id) ||
-//       (msg.receiverId === currentChatUser._id && msg.senderId === user.id)) {
-//     appendMessage(msg);
-//   } else {
-//     // You can also show notification or badge for other chats
-//     // (left as exercise)
-//   }
-// });
+
 
 // Replace your existing handler with this robust debug-friendly one
 socket.off('message:receive'); // remove old listener if present
@@ -143,59 +132,8 @@ socket.on('message:receive', (msg) => {
   }
 });
 
-// socket.on('message:receive', (msg) => {
-//   console.log('message:receive raw ->', msg);
-//   // normalize sender id from common fields
-//   const senderId = String(msg.senderId || msg.sender || msg.from || msg.fromId || msg.from_user || msg.userId || msg._id || '');
-//   const receiverId = String(msg.receiverId || msg.receiver || msg.to || msg.toId || '');
 
-//   // determine open chat id
-//   const openChatId = currentChatUser ? String(currentChatUser._id || currentChatUser.id || '') : (currentOpenUserId ? String(currentOpenUserId) : '');
-
-//   // if message belongs to open chat, append
-//   if (openChatId && (senderId === openChatId || receiverId === openChatId)) {
-//     appendMessage(msg);
-//     return;
-//   }
-
-//   // otherwise increment unread for the sender (if present)
-//   if (senderId) {
-//     incrementUnread(senderId);
-//   } else {
-//     console.warn('message received but no sender id found:', msg);
-//   }
-// });
-// window.token = token;
-// window.user = user;
-// window.socket = socket;
-// window.currentChatUser = window.currentChatUser || null; // home.js must update this on startChat
-
-
-// fetch and render all users
-// async function loadUsers() {
-//   try {
-//     const res = await fetch(`${API_BASE}/api/auth/users`, {
-//       headers: { Authorization: `Bearer ${token}` }
-//     });
-//     const users = await res.json();
-//     const ul = document.getElementById("userList");
-//     ul.innerHTML = "";
-//     users.forEach(u => {
-//       if (u._id === user.id) return; // don't show self
-//       const li = document.createElement("li");
-//       li.className = "list-group-item d-flex justify-content-between align-items-center";
-//       li.innerHTML = `<span>${escapeHtml(u.username)}</span>`;
-//       const btn = document.createElement("button");
-//       btn.className = "btn btn-sm btn-success";
-//       btn.textContent = "Chat";
-//       btn.onclick = () => startChat(u);
-//       li.appendChild(btn);
-//       ul.appendChild(li);
-//     });
-//   } catch (err) {
-//     console.error("Failed to load users", err);
-//   }
-// }
+window._unreadCounts = window._unreadCounts || {}; // canonical unread store
 
 // async function loadUsers() {
 //   try {
@@ -206,26 +144,46 @@ socket.on('message:receive', (msg) => {
 //       console.error('loadUsers fetch failed', res.status);
 //       return;
 //     }
-//     const users = await res.json();
+
+//     const usersResp = await res.json();
+
+//     // normalize ids once
+//     const normalizedUsers = usersResp.map(u => {
+//       const id = String(u._id ?? u.id ?? '');
+//       return { ...u, id };
+//     });
+
 //     const ul = document.getElementById("userList");
 //     if (!ul) return console.error('#userList missing');
 //     ul.innerHTML = "";
 
-//     users.forEach(u => {
-//       const uid = String(u._id || u.id || '');
+//     // keep backend objects for startChat
+//     window._backendUserById = window._backendUserById || {};
+
+//     const meId = String(user.id ?? user._id ?? '');
+
+//     normalizedUsers.forEach(u => {
+//       const uid = u.id;
 //       if (!uid) return;
-//       const currentUserId = String(user.id || user._id || '');
-//       if (uid === currentUserId) return; // don't show self
+//       if (uid === meId) return; // don't show self
+
+//       window._backendUserById[uid] = u;
 
 //       const li = document.createElement("li");
-//       li.className = "list-group-item d-flex align-items-center gap-2 user-item";
+//       li.className = "list-group-item d-flex align-items-center gap-2 user-item justify-content-between";
 //       li.style.cursor = "pointer";
+//       li.dataset.userId = uid;
 
-//       // avatar
+//       // left: avatar + name
+//       const left = document.createElement('div');
+//       left.style.display = 'flex';
+//       left.style.alignItems = 'center';
+//       left.style.gap = '8px';
+
 //       const avatar = document.createElement("div");
 //       avatar.className = "avatar";
-//       avatar.style.width = "32px";
-//       avatar.style.height = "32px";
+//       avatar.style.width = "45px";
+//       avatar.style.height = "45px";
 //       avatar.style.borderRadius = "50%";
 //       avatar.style.overflow = "hidden";
 //       avatar.style.background = "#ddd";
@@ -239,7 +197,6 @@ socket.on('message:receive', (msg) => {
 //         img.style.objectFit = "cover";
 //         avatar.appendChild(img);
 //       } else {
-//         // default avatar svg
 //         avatar.innerHTML = `
 //           <svg viewBox="0 0 24 24" width="32" height="32" fill="#666">
 //             <circle cx="12" cy="12" r="12" fill="#ccc"/>
@@ -250,26 +207,45 @@ socket.on('message:receive', (msg) => {
 //         `;
 //       }
 
-//       // username
 //       const label = document.createElement('span');
 //       label.textContent = u.username || u.name || u.email || 'Unknown';
 
-//       li.appendChild(avatar);
-//       li.appendChild(label);
+//       left.appendChild(avatar);
+//       left.appendChild(label);
 
-//       // click handler for entire li
-//       li.onclick = () => startChat(u);
+//       // right: unread badge (hidden by default)
+//       const right = document.createElement('div');
+//       right.style.display = 'flex';
+//       right.style.alignItems = 'center';
+//       right.style.gap = '8px';
+
+//       const badge = document.createElement('span');
+//       badge.className = 'unread-badge hidden';
+//       badge.id = `unread_${uid}`;          // IMPORTANT: id used by incrementUnread()
+//       badge.textContent = '0';
+
+//       right.appendChild(badge);
+
+//       li.appendChild(left);
+//       li.appendChild(right);
+
+//       // click handler: open chat and clear unread
+//       li.onclick = () => {
+//         const backendUser = window._backendUserById[uid];
+//         if (backendUser) startChat(backendUser);
+//         clearUnread(uid);
+//       };
 
 //       ul.appendChild(li);
 //     });
+
+//     // update summary if implemented
+//     if (typeof updateUnreadChatsSummary === 'function') updateUnreadChatsSummary();
 
 //   } catch (err) {
 //     console.error("Failed to load users", err);
 //   }
 // }
-// at top of file
-window._unreadCounts = window._unreadCounts || {}; // canonical unread store
-
 async function loadUsers() {
   try {
     const res = await fetch(`${API_BASE}/api/auth/users`, {
@@ -281,21 +257,17 @@ async function loadUsers() {
     }
 
     const usersResp = await res.json();
-
-    // normalize ids once
-    const normalizedUsers = usersResp.map(u => {
-      const id = String(u._id ?? u.id ?? '');
-      return { ...u, id };
-    });
+    const normalizedUsers = usersResp.map(u => ({ ...u, id: String(u._id ?? u.id ?? '') }));
 
     const ul = document.getElementById("userList");
     if (!ul) return console.error('#userList missing');
     ul.innerHTML = "";
 
-    // keep backend objects for startChat
     window._backendUserById = window._backendUserById || {};
-
     const meId = String(user.id ?? user._id ?? '');
+
+    // ensure fallback modal exists (only if openLightbox isn't available)
+    ensureAvatarFallbackModal();
 
     normalizedUsers.forEach(u => {
       const uid = u.id;
@@ -313,33 +285,46 @@ async function loadUsers() {
       const left = document.createElement('div');
       left.style.display = 'flex';
       left.style.alignItems = 'center';
-      left.style.gap = '8px';
+      left.style.gap = '12px';
 
       const avatar = document.createElement("div");
-      avatar.className = "avatar";
-      avatar.style.width = "32px";
-      avatar.style.height = "32px";
-      avatar.style.borderRadius = "50%";
-      avatar.style.overflow = "hidden";
-      avatar.style.background = "#ddd";
+      avatar.className = "avatar"; // uses CSS above
 
+      // if user uploaded profile picture
       if (u.profilePicUrl && u.profilePicUrl.trim() !== "") {
         const img = document.createElement("img");
         img.src = u.profilePicUrl;
         img.alt = u.username || "User";
-        img.style.width = "100%";
-        img.style.height = "100%";
-        img.style.objectFit = "cover";
+        img.dataset.full = u.profilePicUrl; // full-size url
         avatar.appendChild(img);
+
+        // click -> preview
+        img.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          previewAvatar({ type: 'img', url: img.dataset.full, caption: u.username });
+        });
       } else {
-        avatar.innerHTML = `
-          <svg viewBox="0 0 24 24" width="32" height="32" fill="#666">
-            <circle cx="12" cy="12" r="12" fill="#ccc"/>
-            <path d="M12 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 
-                     1.8-4 4 1.8 4 4zm0 2c-3.3 0-10 1.7-10 
-                     5v1h20v-1c0-3.3-6.7-5-10-5z"/>
+        // default AccountCircle-like SVG (single circle + head/shoulders) — cleaner than concentric rings
+        const svg = `
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="12" cy="12" r="12" fill="#e6e6e6"/>
+            <g fill="#4a4a4a">
+              <circle cx="12" cy="9" r="3.2"></circle>
+              <path d="M12 14.2c-3.2 0-5.8 1.4-5.8 2.6v1.2h11.6v-1.2c0-1.2-2.6-2.6-5.8-2.6z"/>
+            </g>
           </svg>
         `;
+        avatar.innerHTML = svg;
+
+        // svg click -> preview
+        const svgEl = avatar.querySelector('svg');
+        if (svgEl) {
+          svgEl.style.cursor = 'pointer';
+          svgEl.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            previewAvatar({ type: 'svg', svgHtml: svg, caption: u.username });
+          });
+        }
       }
 
       const label = document.createElement('span');
@@ -356,7 +341,7 @@ async function loadUsers() {
 
       const badge = document.createElement('span');
       badge.className = 'unread-badge hidden';
-      badge.id = `unread_${uid}`;          // IMPORTANT: id used by incrementUnread()
+      badge.id = `unread_${uid}`;
       badge.textContent = '0';
 
       right.appendChild(badge);
@@ -365,16 +350,15 @@ async function loadUsers() {
       li.appendChild(right);
 
       // click handler: open chat and clear unread
-      li.onclick = () => {
+      li.addEventListener('click', () => {
         const backendUser = window._backendUserById[uid];
         if (backendUser) startChat(backendUser);
         clearUnread(uid);
-      };
+      });
 
       ul.appendChild(li);
     });
 
-    // update summary if implemented
     if (typeof updateUnreadChatsSummary === 'function') updateUnreadChatsSummary();
 
   } catch (err) {
@@ -978,29 +962,7 @@ function renderUserAvatar(containerId, user) {
     }
   }
 
-  // // populate modal fields from global `user`
-  // function openProfileModal() {
-  //   // ensure user exists
-  //   if (!window.user) return alert('User not loaded');
-
-  //   // name & about
-  //   nameInput.value = user.username || '';
-  //   aboutInput.value = user.about || '';
-
-  //   // email read-only
-  //   emailInput.value = user.email || '';
-
-  //   // show profile pic if available
-  //   const url = user.profilePicUrl && user.profilePicUrl.trim() !== '' ? user.profilePicUrl : null;
-  //   showPreview(preview, url);
-
-  //   // reset file input
-  //   inputFile.value = '';
-
-  //   // open bootstrap modal if available, otherwise toggle by setting class
-  //   if (bsModal) bsModal.show();
-  //   else profileModalEl.classList.add('show'), profileModalEl.style.display = 'block';
-  // }
+  
 function openProfileModal() {
   if (!user) return alert('User not loaded');
 
@@ -1137,6 +1099,7 @@ function renderDefaultSvg(container) {
   `;
 }
 
+
 loadUsers();/* Robust chat image lightbox — paste at end of home.js and remove previous lightbox code */
 
 (function() {
@@ -1265,3 +1228,47 @@ loadUsers();/* Robust chat image lightbox — paste at end of home.js and remove
 
   console.log('Robust Lightbox initialized');
 })();
+// prefer to reuse existing openLightbox used for chat images; otherwise show fallback modal
+function previewAvatar({ type='img', url=null, svgHtml=null, caption='' } = {}) {
+  // if you have global openLightbox (from chat image lightbox), prefer it
+  if (typeof window.openLightbox === 'function') {
+    if (type === 'svg' && svgHtml) {
+      // create temporary blob/data url for svg (data:) to pass into lightbox
+      const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgHtml);
+      window.openLightbox({ src: svgDataUrl, caption });
+    } else {
+      window.openLightbox({ src: url, caption });
+    }
+    return;
+  }
+
+  // fallback: use simple modal created below
+  ensureAvatarFallbackModal();
+  const inner = document.getElementById('avatarFallbackInner');
+  if (!inner) return;
+  if (type === 'svg' && svgHtml) inner.innerHTML = svgHtml;
+  else inner.innerHTML = `<img src="${url}" alt="${caption || 'Avatar'}" />`;
+
+  const modal = document.getElementById('avatarFallbackModal');
+  modal.classList.add('open');
+}
+
+// create fallback modal DOM if missing
+function ensureAvatarFallbackModal() {
+  if (document.getElementById('avatarFallbackModal')) return;
+  const div = document.createElement('div');
+  div.id = 'avatarFallbackModal';
+  div.innerHTML = `
+    <button class="close" aria-label="Close">&times;</button>
+    <div class="card"><div id="avatarFallbackInner"></div></div>
+  `;
+  document.body.appendChild(div);
+
+  const closeBtn = div.querySelector('.close');
+  const inner = document.getElementById('avatarFallbackInner');
+
+  function close() { div.classList.remove('open'); inner.innerHTML = ''; }
+  closeBtn.addEventListener('click', close);
+  div.addEventListener('click', (e) => { if (e.target === div) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && div.classList.contains('open')) close(); });
+}
