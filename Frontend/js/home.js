@@ -1,7 +1,18 @@
 // js/home.js
-const API_BASE = "http://localhost:5000";
+// const API_BASE = "http://localhost:5000";
+// const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || 'http://localhost:5000';
+// const SOCKET_BASE = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || API_BASE;
+
+// origin for HTTP API (no trailing path)
+const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || 'http://localhost:5000';
+// socket origin (used when calling io(...))
+const SOCKET_BASE = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || API_BASE;
+// AUTH_BASE is the REST namespace for authentication endpoints
+const AUTH_BASE = (window.APP_CONFIG && window.APP_CONFIG.AUTH_BASE) || (API_BASE.replace(/\/$/, '') + '/api/auth');
+
 const token = localStorage.getItem("token");
 const user = JSON.parse(localStorage.getItem("user") || "null");
+// const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || "http://localhost:5000/api/auth";
 
 if (!token || !user) {
   window.location = "index.html";
@@ -9,8 +20,6 @@ if (!token || !user) {
 renderUserAvatar("meLabel", user);
 
 
-// // document.getElementById("meLabel").textContent = user.username || "You";
-// document.getElementById("logoutBtn").onclick = () => { localStorage.clear(); window.location="index.html"; };
 
 const socket = io(API_BASE, { auth: { token } }); // optional token auth for socket
 let currentChatUser = null;
@@ -1001,8 +1010,7 @@ closeBtn.addEventListener('click', () => {
     fr.onerror = () => { alert('Failed to read file'); };
     fr.readAsDataURL(f);
   });
-
-  
+// Replace existing saveBtn handler with this code (inside your profile modal IIFE)
 if (saveBtn) {
   saveBtn.addEventListener('click', async () => {
     const nameEl = document.getElementById('profileName');
@@ -1026,29 +1034,40 @@ if (saveBtn) {
     saveBtn.textContent = 'Saving...';
 
     try {
-      const res = await fetch(`${API_BASE.replace(/\/$/, "")}/api/auth/profile`, {
+      // Use APP_CONFIG if present, otherwise fall back to /api/auth/profile
+      const apiRoot = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) ? window.APP_CONFIG.API_BASE : ("/api/auth");
+      // API_BASE in APP_CONFIG might include '/api/auth' already; ensure we remove trailing parts
+      let profileUrl = apiRoot;
+      if (!profileUrl.endsWith('/profile')) {
+        // If APP_CONFIG.API_BASE is ".../api/auth" use that + /profile, otherwise append correctly
+        profileUrl = profileUrl.replace(/\/$/, '') + '/profile';
+      }
+
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const res = await fetch(profileUrl, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}` // IMPORTANT: do NOT set Content-Type
-        },
+        headers: headers, // do NOT set Content-Type when sending FormData
         body: fd
       });
 
       const data = await res.json().catch(()=>({}));
       if (!res.ok) {
         console.error('Profile update failed', data);
-        alert(data.error || 'Profile update failed');
+        alert(data.error || data.message || 'Profile update failed');
         return;
       }
 
-      // server returns { user: { ... } }
+      // server returns { user: { ... } } or user object directly
       const updatedUser = data.user || data;
       if (!updatedUser) {
         alert('Invalid server response');
         return;
       }
 
-      // persist locally and update global user
+      // Persist locally and update global user
       localStorage.setItem('user', JSON.stringify(updatedUser));
       window.user = updatedUser;
 
@@ -1056,6 +1075,11 @@ if (saveBtn) {
       try { renderUserAvatar('meLabel', updatedUser); } catch (e) { console.warn(e); }
       const meText = document.getElementById('meText');
       if (meText) meText.textContent = updatedUser.username || '';
+
+      // update profile modal fields (about/name/avatar preview)
+      document.getElementById('profileName').value = updatedUser.username || '';
+      const aboutElNow = document.getElementById('profileAbout');
+      if (aboutElNow) aboutElNow.value = updatedUser.about || '';
 
       // close modal (bootstrap-aware)
       const profileModalEl = document.getElementById('profileModal');
@@ -1068,7 +1092,8 @@ if (saveBtn) {
 
       // clear file input & temp preview state
       if (fileInput) fileInput.value = '';
-      lastSelectedDataUrl = null;
+      // if you used a temp dataURL preview variable, clear it too
+
     } catch (err) {
       console.error('Profile save error', err);
       alert('Failed to save profile (network error)');
@@ -1078,6 +1103,83 @@ if (saveBtn) {
     }
   });
 }
+
+  
+// if (saveBtn) {
+//   saveBtn.addEventListener('click', async () => {
+//     const nameEl = document.getElementById('profileName');
+//     const aboutEl = document.getElementById('profileAbout');
+//     const fileInput = document.getElementById('profileImageInput');
+
+//     const newName = (nameEl?.value || '').trim();
+//     if (!newName) return alert('Name cannot be empty');
+
+//     // Build FormData with text fields + optional file
+//     const fd = new FormData();
+//     fd.append('name', newName);
+//     fd.append('about', (aboutEl?.value || '').trim());
+//     if (fileInput && fileInput.files && fileInput.files[0]) {
+//       fd.append('image', fileInput.files[0]);
+//     }
+
+//     // UI feedback
+//     saveBtn.disabled = true;
+//     const prevText = saveBtn.textContent;
+//     saveBtn.textContent = 'Saving...';
+
+//     try {
+//       const res = await fetch(`${API_BASE.replace(/\/$/, "")}/api/auth/profile`, {
+//         method: 'POST',
+//         headers: {
+//           Authorization: `Bearer ${token}` // IMPORTANT: do NOT set Content-Type
+//         },
+//         body: fd
+//       });
+
+//       const data = await res.json().catch(()=>({}));
+//       if (!res.ok) {
+//         console.error('Profile update failed', data);
+//         alert(data.error || 'Profile update failed');
+//         return;
+//       }
+
+//       // server returns { user: { ... } }
+//       const updatedUser = data.user || data;
+//       if (!updatedUser) {
+//         alert('Invalid server response');
+//         return;
+//       }
+
+//       // persist locally and update global user
+//       localStorage.setItem('user', JSON.stringify(updatedUser));
+//       window.user = updatedUser;
+
+//       // update header avatar and username UI
+//       try { renderUserAvatar('meLabel', updatedUser); } catch (e) { console.warn(e); }
+//       const meText = document.getElementById('meText');
+//       if (meText) meText.textContent = updatedUser.username || '';
+
+//       // close modal (bootstrap-aware)
+//       const profileModalEl = document.getElementById('profileModal');
+//       if (typeof bootstrap !== 'undefined' && profileModalEl) {
+//         try { bootstrap.Modal.getInstance(profileModalEl)?.hide(); } catch(e){ profileModalEl.classList.remove('show'); profileModalEl.style.display='none'; }
+//       } else if (profileModalEl) {
+//         profileModalEl.classList.remove('show');
+//         profileModalEl.style.display = 'none';
+//       }
+
+//       // clear file input & temp preview state
+//       if (fileInput) fileInput.value = '';
+//       lastSelectedDataUrl = null;
+//     } catch (err) {
+//       console.error('Profile save error', err);
+//       alert('Failed to save profile (network error)');
+//     } finally {
+//       saveBtn.disabled = false;
+//       saveBtn.textContent = prevText || 'Save';
+//     }
+//   });
+// }
 
 
   // If modal closed via bootstrap, cleanup temp state

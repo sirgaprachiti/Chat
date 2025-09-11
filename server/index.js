@@ -1,4 +1,5 @@
-const express = require("express");
+require('dotenv').config();
+const express = require('express');
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const http = require("http");
@@ -8,7 +9,7 @@ const connectDB = require("./config/db");
 const { auth } = require('./middleware/auth');
 const Message = require('./models/Message');
 const mongoose = require('mongoose');
-require('dotenv').config();
+
 // app.use(express.json());
 const authRoutes = require("./routes/auth");
 const chatRoutes = require("./routes/chat");
@@ -93,6 +94,10 @@ app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
   res.status(err.status || 500).json({ error: err.message || "Server error" });
 });
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 // Profile update (name, about, optional image)
 app.post('/api/auth/profile', auth, upload.single('image'), async (req, res) => {
   try {
@@ -287,14 +292,14 @@ io.on("connection", (socket) => {
   });
 });
 
-// // MongoDB connection
-// mongoose.connect("mongodb://127.0.0.1:27017/chatapp", {
-//   useNewUrlParser: true,
-//   useUnifiedTopology: true,
-// })
-// .then(() => console.log("MongoDB connected"))
-// .catch(err => console.error(err));
-connectDB();
 
-const PORT = 5000;
-server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+const PORT = process.env.PORT || 5000;
+
+connectDB().then(() => {
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}).catch(err => {
+  console.error('Could not start server due to DB error', err);
+  process.exit(1);
+});
