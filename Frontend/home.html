@@ -280,7 +280,7 @@
 </head>
 <body class="container py-4">
 <!-- Profile Modal -->
-<div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
+ <div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
@@ -290,7 +290,7 @@
       <div class="modal-body">
         <div class="text-center mb-3">
           <div id="profileAvatarPreview" class="avatar" style="width:120px;height:120px;margin:auto;border-radius:50%;overflow:hidden;background:#eee;">
-            <!-- preview img / svg inserted here by JS -->
+          
           </div>
           <div class="mt-2">
             <input id="profileImageInput" type="file" accept="image/*" class="form-control form-control-sm" />
@@ -301,11 +301,8 @@
           <label class="form-label small text-muted">Name</label>
           <input id="profileName" class="form-control" />
         </div>
-<!-- 
-        <div class="mb-3">
-          <label class="form-label small text-muted">About</label>
-          <textarea id="profileAbout" class="form-control" rows="2"></textarea>
-        </div> -->
+
+        
         <div class="mb-3">
   <label class="form-label small text-muted">About</label>
   <div class="d-flex flex-column gap-2">
@@ -327,7 +324,7 @@
       </div>
     </div>
   </div>
-</div>
+</div>  
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>ChatApp</h3>
 
@@ -398,6 +395,15 @@
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="js/home.js"></script>
   <script src="js/header-menu.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- emoji-picker web component (module) -->
+<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+
+<!-- Emoji wiring (this file) -->
+<script src="js/profile-emoji.js"></script>
+  
   <!-- Image lightbox -->
 <div id="chatLightbox" class="chat-lightbox" aria-hidden="true" style="display:none;">
   <div class="lb-inner" role="dialog" aria-modal="true">

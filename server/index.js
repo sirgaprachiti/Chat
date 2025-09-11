@@ -8,7 +8,8 @@ const connectDB = require("./config/db");
 const { auth } = require('./middleware/auth');
 const Message = require('./models/Message');
 const mongoose = require('mongoose');
-
+require('dotenv').config();
+// app.use(express.json());
 const authRoutes = require("./routes/auth");
 const chatRoutes = require("./routes/chat");
 const resetRoutes = require("./routes/reset");
@@ -58,7 +59,7 @@ const upload = multer({
 });
 
 
-app.use(express.json());
+ app.use(express.json());
 // app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 const allowedOrigins = [
   "http://localhost:3000",   // React dev (if you use it later)
@@ -82,6 +83,7 @@ app.use(cors({
 
 
 // Routes
+app.use('/api/auth', require('./routes/auth'));
 app.use("/api/auth", authRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/reset", resetRoutes);

@@ -382,133 +382,7 @@ async function loadUsers() {
   }
 }
 
-// async function loadUsers() {
-//   try {
-//     const res = await fetch(`${API_BASE}/api/auth/users`, {
-//       headers: { Authorization: `Bearer ${token}` }
-//     });
-//     if (!res.ok) {
-//       console.error('loadUsers fetch failed', res.status);
-//       return;
-//     }
 
-//     const usersResp = await res.json();
-//     // right after `const usersResp = await res.json();`
-// const normalizedUsers = usersResp.map(u => {
-//   const id = String(u._id || u.id || u._id || '');
-//   return { ...u, id };
-// });
-
-
-//     const ul = document.getElementById("userList");
-//     if (!ul) return console.error('#userList missing');
-//     ul.innerHTML = "";
-
-//     // keep backend objects for startChat
-//     window._backendUserById = window._backendUserById || {};
-
-// normalizedUsers.forEach(u => {
-//         const uid = u.id;                // ✅ use normalized id only
-//   if (!uid) return;
-//   const currentUserId = String(user.id || user._id || '');
-//   if (uid === currentUserId) return; // don't show self
-
-//   window._backendUserById[uid] = u;
-
-//   const li = document.createElement("li");
-//   li.className = "list-group-item d-flex align-items-center gap-2 user-item justify-content-between";
-//   li.style.cursor = "pointer";
-//   li.dataset.userId = uid;
-
-//   // ... avatar + label creation ...
-
-//   const badge = document.createElement('span');
-//   badge.className = 'unread-badge hidden';
-//   badge.id = `unread_${uid}`;      // ✅ matches incrementUnread(uid)
-//   badge.textContent = '0';
-
-//       window._backendUserById[uid] = u;
-
-//       const li = document.createElement("li");
-//       li.className = "list-group-item d-flex align-items-center gap-2 user-item justify-content-between";
-//       li.style.cursor = "pointer";
-//       li.dataset.userId = uid;
-
-//       // left: avatar + name
-//       const left = document.createElement('div');
-//       left.style.display = 'flex';
-//       left.style.alignItems = 'center';
-//       left.style.gap = '8px';
-
-//       const avatar = document.createElement("div");
-//       avatar.className = "avatar";
-//       avatar.style.width = "32px";
-//       avatar.style.height = "32px";
-//       avatar.style.borderRadius = "50%";
-//       avatar.style.overflow = "hidden";
-//       avatar.style.background = "#ddd";
-
-//       if (u.profilePicUrl && u.profilePicUrl.trim() !== "") {
-//         const img = document.createElement("img");
-//         img.src = u.profilePicUrl;
-//         img.alt = u.username || "User";
-//         img.style.width = "100%";
-//         img.style.height = "100%";
-//         img.style.objectFit = "cover";
-//         avatar.appendChild(img);
-//       } else {
-//         avatar.innerHTML = `
-//           <svg viewBox="0 0 24 24" width="32" height="32" fill="#666">
-//             <circle cx="12" cy="12" r="12" fill="#ccc"/>
-//             <path d="M12 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 
-//                      1.8-4 4 1.8 4 4zm0 2c-3.3 0-10 1.7-10 
-//                      5v1h20v-1c0-3.3-6.7-5-10-5z"/>
-//           </svg>
-//         `;
-//       }
-
-//       const label = document.createElement('span');
-//       label.textContent = u.username || u.name || u.email || 'Unknown';
-
-//       left.appendChild(avatar);
-//       left.appendChild(label);
-
-//       // right: unread badge (hidden by default)
-//       const right = document.createElement('div');
-//       right.style.display = 'flex';
-//       right.style.alignItems = 'center';
-//       right.style.gap = '8px';
-
-//       const badge = document.createElement('span');
-//       badge.className = 'unread-badge hidden';
-//       badge.id = `unread_${uid}`;          // IMPORTANT id format used by incrementUnread
-//       badge.textContent = '0';
-
-//       right.appendChild(badge);
-
-//       li.appendChild(left);
-//       li.appendChild(right);
-
-//       // click handler: open chat and clear unread
-//       li.onclick = () => {
-//         const backendUser = window._backendUserById[uid];
-//         if (backendUser) startChat(backendUser);
-//         clearUnread(uid);
-//       };
-
-//       ul.appendChild(li);
-//     });
-
-//     // make sure summary badge updates (if you implemented global counter)
-//     if (typeof updateGlobalUnreadBadge === 'function') updateGlobalUnreadBadge();
-
-//   } catch (err) {
-//     console.error("Failed to load users", err);
-//   }
-// }
-
-// Example: replace with your real backend data fetch
-// users = [{ id: 'u1', name: 'Kalyani' }, ...]
 let users = [];          // populated from backend
 const unreadCounts = {}; // map userId -> number
 let currentOpenUserId = null; // who is currently open
@@ -550,33 +424,8 @@ function renderUserList() {
   });
 }
 
-// Call this when a new message arrives from userId
-// function incrementUnread(userId, amount = 1) {
-//   if (currentOpenUserId === userId) {
-//     // chat is open -> consider message read (do not increment)
-//     return;
-//   }
-//   unreadCounts[userId] = (unreadCounts[userId] || 0) + amount;
-//   const badge = document.getElementById(`unread_${userId}`);
-//   if (badge) {
-//     badge.textContent = unreadCounts[userId] > 99 ? '99+' : unreadCounts[userId];
-//     badge.classList.remove('hidden');
-//   } else {
-//     // If user row not rendered yet: optionally rerender user list
-//     renderUserList();
-//   }
-// }
 
-// // Clear unread when opening user
-// function clearUnread(userId) {
-//   unreadCounts[userId] = 0;
-//   const badge = document.getElementById(`unread_${userId}`);
-//   if (badge) {
-//     badge.textContent = '0';
-//     badge.classList.add('hidden');
-//   }
-// }
-// --- Unread-chats summary helpers ---
+
 
 // keep unread counts in a global map (normalize keys to strings)
 window._unreadCounts = window._unreadCounts || {}; // safe global
