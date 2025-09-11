@@ -1,212 +1,4 @@
-// // const express = require("express");
-// // const bcrypt = require("bcrypt");
-// // const User = require("../models/User");
 
-// // const router = express.Router();
-
-// // // Register
-// // router.post("/signup", async (req, res) => {
-// //   try {
-// //     const { username, email, password } = req.body;
-// //     const hashed = await bcrypt.hash(password, 10);
-// //     const user = new User({ username, email, password: hashed });
-// //     await user.save();
-// //     res.json({ message: "User registered successfully" });
-// //   } catch (err) {
-// //     res.status(400).json({ error: "User registration failed" });
-// //   }
-// // });
-
-// // // Login
-// // router.post("/login", async (req, res) => {
-// //   try {
-// //     const { email, password } = req.body;
-// //     const user = await User.findOne({ email });
-// //     if (!user) return res.status(400).json({ error: "Invalid credentials" });
-
-// //     const match = await bcrypt.compare(password, user.password);
-// //     if (!match) return res.status(400).json({ error: "Invalid credentials" });
-
-// //     res.json({ message: "Login successful", userId: user._id, username: user.username });
-// //   } catch (err) {
-// //     res.status(500).json({ error: "Login failed" });
-// //   }
-// // });
-
-// // // Get all users
-// // router.get("/users", async (req, res) => {
-// //   const users = await User.find().select("-password");
-// //   res.json(users);
-// // });
-
-// // module.exports = router;
-
-// // const express = require("express");
-// // const bcrypt = require("bcrypt");
-// // const jwt = require("jsonwebtoken");
-// // const User = require("../models/User");
-// // const { SECRET } = require("../middleware/auth");
-
-// // const router = express.Router();
-
-
-// // Register
-// // router.post("/signup", async (req, res) => {
-// //   try {
-// //     const { username, email, password } = req.body;
-// //     const existing = await User.findOne({ email });
-// //     if (existing) return res.status(400).json({ error: "Email already exists" });
-
-// //     const hashed = await bcrypt.hash(password, 10);
-// //     const user = new User({ username, email, password: hashed });
-// //     await user.save();
-
-// //     res.json({ message: "User registered successfully" });
-// //   } catch (err) {
-// //     res.status(500).json({ error: "Signup failed" });
-// //   }
-// // });
-// // routes/auth.js (signup handler)
-// // router.post("/signup", async (req, res) => {
-// //   try {
-// //     const { username, email, password } = req.body;
-// //     const existing = await User.findOne({ email });
-// //     if (existing) return res.status(400).json({ error: "Email already exists" });
-
-// //     const hashed = await bcrypt.hash(password, 10);
-// //     const user = new User({ username, email, password: hashed });
-// //     await user.save();
-
-// //     // Return a JSON body (use 201 Created)
-// //     return res.status(201).json({ message: "User registered successfully", user: { id: user._id, username: user.username, email: user.email } });
-// //   } catch (err) {
-// //     console.error("Signup error:", err);
-// //     return res.status(500).json({ error: "Signup failed" });
-// //   }
-// // });
-
-// // routes/auth.js
-// const express = require('express');
-// const router = express.Router();
-// const validator = require('validator');
-// const crypto = require('crypto');
-// const User = require('../models/User');
-// const sendVerificationEmail = require('../utils/sendVerificationEmail');
-
-
-
-// const bcrypt = require("bcrypt");
-// const jwt = require("jsonwebtoken");
-// // const User = require("../models/User");
-// const { SECRET } = require("../middleware/auth");
-
-// // POST /api/auth/signup
-// router.post('/signup', async (req, res) => {
-//   try {
-//     const { username, email, password } = req.body;
-//     if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
-//     if (!validator.isEmail(String(email))) return res.status(400).json({ error: 'Invalid email format' });
-
-//     const normalized = validator.normalizeEmail(email) || email.toLowerCase().trim();
-
-//     // check existing user
-//     const exists = await User.findOne({ email: normalized });
-//     if (exists) return res.status(409).json({ error: 'Email already registered' });
-
-//     // create user
-//     const verifyToken = crypto.randomBytes(24).toString('hex');
-//     const verifyExpires = Date.now() + 24 * 60 * 60 * 1000; // 24h
-
-//     const u = new User({
-//       username: username.trim(),
-//       email: normalized,
-//       emailVerified: false,
-//       emailVerifyToken: verifyToken,
-//       emailVerifyExpires: verifyExpires
-//     });
-//     await u.setPassword(password);
-//     await u.save();
-
-//     // send verification email (do not block signup on email failure, but log it)
-//     try {
-//       await sendVerificationEmail(u.email, verifyToken);
-//     } catch (err) {
-//       console.error('sendVerificationEmail failed', err);
-//     }
-
-//     return res.json({ message: 'Registered successfully. Please check your email for verification link.' });
-//   } catch (err) {
-//     console.error('signup error', err);
-//     return res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-// // GET /api/auth/verify-email?token=...
-// router.get('/verify-email', async (req, res) => {
-//   try {
-//     const token = req.query.token;
-//     if (!token) return res.status(400).send('Missing token');
-
-//     const user = await User.findOne({ emailVerifyToken: token, emailVerifyExpires: { $gt: Date.now() } });
-//     if (!user) return res.status(400).send('Invalid or expired token');
-
-//     user.emailVerified = true;
-//     user.emailVerifyToken = undefined;
-//     user.emailVerifyExpires = undefined;
-//     await user.save();
-
-//     // redirect to frontend login with success message (adjust FRONTEND_URL in .env)
-//     return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5500'}/index.html?verified=1`);
-//   } catch (err) {
-//     console.error('verify-email error', err);
-//     return res.status(500).send('Server error');
-//   }
-// });
-
-// module.exports = router;
-
-
-// // Login
-// router.post("/login", async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-//     const user = await User.findOne({ email });
-//     if (!user) return res.status(400).json({ error: "Invalid credentials" });
-
-//     const match = await bcrypt.compare(password, user.password);
-//     if (!match) return res.status(400).json({ error: "Invalid credentials" });
-
-//     // Create JWT
-//     // const token = jwt.sign({ id: user._id, email: user.email }, SECRET, { expiresIn: "1h" });
-// // Login (replace the final res.json(...) inside router.post('/login', ...) )
-// const token = jwt.sign({ id: user._id, email: user.email }, SECRET, { expiresIn: "1h" });
-
-// // include profilePicUrl and about so frontend can persist avatar across logins
-// res.json({
-//   token,
-//   user: {
-//     _id: user._id,
-//     id: user._id,                // keep 'id' if frontend expects it
-//     username: user.username,
-//     email: user.email,
-//     about: user.about || '',
-//     profilePicUrl: user.profilePicUrl || ''
-//   }
-// });
-
-//     // res.json({ token, user: { id: user._id, username: user.username, email: user.email } });
-//   } catch (err) {
-//     res.status(500).json({ error: "Login failed" });
-//   }
-// });
-
-// // Get all users
-// router.get("/users", async (req, res) => {
-//   const users = await User.find().select("-password");
-//   res.json(users);
-// });
-
-// module.exports = router;
 
 
 // routes/auth.js
@@ -217,7 +9,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const sendVerificationEmail = require('../utils/sendVerificationEmail');
 const jwt = require('jsonwebtoken');
-
+const sendResetEmail = require('../utils/sendResetEmail'); // create this file
 const JWT_SECRET = process.env.JWT_SECRET || 'change_this_secret';
 
 // POST /api/auth/signup
@@ -345,6 +137,82 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('login error', err);
     return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// POST /api/auth/reset-request
+router.post('/reset-request', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Missing email' });
+
+    const normalized = (email || '').toLowerCase().trim();
+    const user = await User.findOne({ email: normalized });
+    if (!user) {
+      // don't reveal whether email exists — respond OK
+      return res.json({ message: 'If the email exists, a reset link has been sent.' });
+    }
+
+    // make token, expiry (e.g. 1 hour)
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashed = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    user.passwordResetToken = hashed;
+    user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+    await user.save();
+
+    try {
+      await sendResetEmail(user.email, rawToken);
+    } catch (err) {
+      console.error('send reset email failed', err);
+      // still respond success (don't leak internal errors)
+    }
+
+    return res.json({ message: 'If the email exists, a reset link has been sent.' });
+  } catch (err) {
+    console.error('reset-request error', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/auth/reset (token + newPassword)
+router.post('/reset', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Missing fields' });
+
+    // hash the provided token to compare with stored hash
+    const hashed = crypto.createHash('sha256').update(String(token)).digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hashed,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+    if (!user) return res.status(400).json({ error: 'Invalid or expired token' });
+
+    // set new password - if you have setPassword method reuse it
+    // Example with bcrypt:
+    // const saltRounds = 10;
+    // const hash = await bcrypt.hash(password, saltRounds);
+    // user.passwordHash = hash; // adapt field name to your User model
+    // user.passwordResetToken = undefined;
+    // user.passwordResetExpires = undefined;
+    // await user.save();
+
+    // recommended: use model helper
+await user.setPassword(password);   // uses bcrypt inside model
+user.clearPasswordReset && user.clearPasswordReset(); // clear fields if helper exists
+// or explicitly:
+user.passwordResetToken = undefined;
+user.passwordResetExpires = undefined;
+await user.save();
+
+
+    return res.json({ message: 'Password reset successful' });
+  } catch (err) {
+    console.error('reset error', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
