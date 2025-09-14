@@ -229,4 +229,82 @@ function toggleSelectMode(enable) {
 
 })();
 
+async function saveProfile(e) {
+    e.preventDefault();
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
 
+    try {
+      const formData = new FormData();
+      formData.append('name', nameInput.value.trim());
+      formData.append('about', aboutInput.value.trim());
+      if (imageInput.files[0]) formData.append('image', imageInput.files[0]);
+
+      const res = await fetch(`${API_BASE}/profile`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save profile');
+
+      // ✅ Save to localStorage
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      // ✅ Update popup fields and navbar/profile section
+      renderProfilePopup(data.user);
+      updateNavbarProfile(data.user);
+
+      // ✅ Close modal
+      closeProfileModal();
+
+    } catch (err) {
+      console.error('Save profile error', err);
+      alert('Error saving profile: ' + err.message);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+    }
+  }
+
+  profileForm.addEventListener('submit', saveProfile);
+
+  function renderProfilePopup(user) {
+    if (!user) return;
+    nameInput.value = user.username || '';
+    aboutInput.value = user.about || '';
+    emailInput.value = user.email || '';
+    if (user.profilePicUrl) {
+      document.getElementById('profilePreview').src = user.profilePicUrl;
+    }
+  }
+
+  function updateNavbarProfile(user) {
+    // Example: update profile pic/name on header if you have them
+    const navPic = document.getElementById('navProfilePic');
+    const navName = document.getElementById('navProfileName');
+    if (navPic && user.profilePicUrl) navPic.src = user.profilePicUrl;
+    if (navName && user.username) navName.textContent = user.username;
+  }
+
+  function closeProfileModal() {
+    // If using Bootstrap modal
+    if (typeof bootstrap !== 'undefined') {
+      const modal = bootstrap.Modal.getInstance(profileModal);
+      modal.hide();
+    } else {
+      // fallback: hide manually
+      profileModal.style.display = 'none';
+    }
+  }
+
+  // When opening the popup → fill with saved data
+  document.getElementById('openProfileBtn').addEventListener('click', () => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    renderProfilePopup(user);
+  });
+
+  
