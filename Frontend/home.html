@@ -8,6 +8,22 @@
   <style>
     #chatBox { height: 75vh; overflow-y: auto; background:#fff; padding:12px; border-radius:6px; border:1px solid #ddd; }
     /* unread count badge shown beside user name */
+    /* small read pill */
+.read-indicator {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #28a745;
+  background: rgba(40,167,69,0.08);
+}
+.chat-header-read {
+  margin-left: 8px;
+  color: #28a745;
+  background: transparent;
+}
+
 .unread-badge {
   background: #dc3545;
   color: #fff;
@@ -67,15 +83,15 @@
   display: inline-block;
   margin: 5px 0;
 }
-.unread-badge {
-  background: #dc3545;   /* red */
+/* .unread-badge {
+  background: #dc3545;   
   color: #fff;
   font-size: 12px;
   font-weight: 600;
   border-radius: 50%;
   padding: 2px 6px;
   margin-left: 6px;
-}
+} */
 
 
 /* Sender bubble (example for right side) */
@@ -212,7 +228,7 @@
   gap: 10px;           /* space between avatar and button */
 }
 /* optional - keeps sizing consistent in your .avatar container */
-.avatar {
+/* .avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -220,7 +236,7 @@
   display: inline-grid;
   place-items: center;
   background: transparent;
-}
+} */
 
 .avatar img.avatar-img {
   width: 100%;
@@ -331,6 +347,42 @@
   display:inline-flex;
   align-items:center;
   gap:8px;
+}
+/* Make the All Users list scrollable and visually match the chatBox height */
+#userList {
+  max-height: 75vh;        /* same height as #chatBox */
+  overflow-y: auto;
+  padding-right: 6px;      /* prevents content being hidden under scrollbar */
+  box-sizing: border-box;
+}
+
+/* Ensure card around user list doesn't collapse on small screens */
+.col-md-4 .card {
+  height: auto;
+  min-height: 75vh;
+}
+
+/* Optional: nicer scrollbar styling for WebKit browsers (Chrome/Safari/Edge) */
+#userList::-webkit-scrollbar { width: 10px; }
+#userList::-webkit-scrollbar-track { background: transparent; }
+#userList::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.15);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+#userList::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+
+/* Optional: Firefox scrollbar width */
+#userList {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.15) transparent;
+}
+
+#userList { max-height: 75vh; overflow-y: auto; padding-right: 6px; box-sizing:border-box; }
+/* Remove the border line between user list items */
+#userList .list-group-item {
+  border: none !important;
 }
 
   </style>

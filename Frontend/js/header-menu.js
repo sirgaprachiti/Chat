@@ -114,30 +114,55 @@
   });
 
   // toggles select mode UI & adds/removes checkboxes
-  function toggleSelectMode(enable) {
-    selectMode = !!enable;
+  // function toggleSelectMode(enable) {
+  //   selectMode = !!enable;
 
-    const chatBox = document.getElementById('chatBox');
-    if (selectMode) {
-      selectToolbar.style.display = 'flex';
-      chatBox.classList.add('select-mode');
+  //   const chatBox = document.getElementById('chatBox');
+  //   if (selectMode) {
+  //     selectToolbar.style.display = 'flex';
+  //     chatBox.classList.add('select-mode');
 
-      // for each message bubble, insert checkbox if not present
-      Array.from(chatBox.querySelectorAll('.msg-wrapper')).forEach(wrapper => {
-        insertCheckboxIfNeeded(wrapper);
-      });
-    } else {
-      selectToolbar.style.display = 'none';
-      chatBox.classList.remove('select-mode');
-      Array.from(chatBox.querySelectorAll('.msg-checkbox')).forEach(cb => cb.closest('.checkbox-container').replaceWith(cb.closest('.checkbox-container').nextSibling || document.createTextNode('')));
-      Array.from(chatBox.querySelectorAll('.msg-wrapper')).forEach(wrapper => {
-        const cbCont = wrapper.querySelector('.checkbox-container');
-        if (cbCont) cbCont.remove();
-        wrapper.classList.remove('selectable');
-        wrapper.removeAttribute('data-selected');
-      });
-    }
+  //     // for each message bubble, insert checkbox if not present
+  //     Array.from(chatBox.querySelectorAll('.msg-wrapper')).forEach(wrapper => {
+  //       insertCheckboxIfNeeded(wrapper);
+  //     });
+  //   } else {
+  //     selectToolbar.style.display = 'none';
+  //     chatBox.classList.remove('select-mode');
+  //     Array.from(chatBox.querySelectorAll('.msg-checkbox')).forEach(cb => cb.closest('.checkbox-container').replaceWith(cb.closest('.checkbox-container').nextSibling || document.createTextNode('')));
+  //     Array.from(chatBox.querySelectorAll('.msg-wrapper')).forEach(wrapper => {
+  //       const cbCont = wrapper.querySelector('.checkbox-container');
+  //       if (cbCont) cbCont.remove();
+  //       wrapper.classList.remove('selectable');
+  //       wrapper.removeAttribute('data-selected');
+  //     });
+  //   }
+  // }
+function toggleSelectMode(enable) {
+  selectMode = !!enable;
+  const chatBox = document.getElementById('chatBox');
+
+  if (selectMode) {
+    selectToolbar.style.display = 'flex';
+    chatBox.classList.add('select-mode');
+
+    // insert checkboxes
+    Array.from(chatBox.querySelectorAll('.msg-wrapper')).forEach(wrapper => {
+      wrapper.classList.add('selectable');
+      insertCheckboxIfNeeded(wrapper);
+    });
+  } else {
+    selectToolbar.style.display = 'none';
+    chatBox.classList.remove('select-mode');
+
+    Array.from(chatBox.querySelectorAll('.msg-wrapper')).forEach(wrapper => {
+      const cbCont = wrapper.querySelector('.checkbox-container');
+      if (cbCont) cbCont.remove();
+      wrapper.classList.remove('selectable');
+      wrapper.removeAttribute('data-selected');
+    });
   }
+}
 
   // insert checkbox at a message wrapper (if not present)
   function insertCheckboxIfNeeded(wrapper) {

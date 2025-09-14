@@ -19,23 +19,60 @@ if (!token || !user) {
 }
 renderUserAvatar("meLabel", user);
 
+// -------- Socket init (create but do NOT connect until token attached) ----------
+/*
+  Important:
+  - We create socket with autoConnect: false so it doesn't attempt handshake before we attach token.
+  - Use transports polling + websocket for more reliable handshake.
+  - If token missing, redirect to login (you already check that above)
+*/
+const SOCKET_ORIGIN = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || (window.SOCKET_BASE) || API_BASE || 'http://localhost:5000';
+
+// create socket but don't connect yet
+const socket = io(SOCKET_ORIGIN, { autoConnect: false, transports: ['polling', 'websocket'] });
+window.socket = socket; // expose for debug
+
+// attach handlers (only once)
+socket.on('connect', () => {
+  console.log('socket connected, id=', socket.id);
+  const uid = String(user?._id ?? user?.id ?? '').trim();
+  if (uid) socket.emit('user:online', { userId: uid });
+});
+
+socket.on('disconnect', (reason) => console.log('socket disconnected, reason=', reason));
+
+// handle connect_error gracefully (auth failure or other)
+socket.on('connect_error', (err) => {
+  console.error('socket connect_error', err && (err.message || err));
+  // If authentication failed, clear local state and redirect to login
+  const msg = err && err.message ? String(err.message).toLowerCase() : '';
+  if (/auth|token|unauth/i.test(msg)) {
+    try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch(e){}
+    alert('Session invalid or expired — please log in again.');
+    window.location = 'index.html';
+  }
+});
+
+socket.on('error', (err) => console.error('socket error', err));
+
+// Now attach token and connect (we already redirected earlier if no token/user)
+if (token) {
+  socket.auth = { token };
+  socket.connect();
+} else {
+  console.warn('No token available; socket will not connect. Redirecting to login.');
+  // Optional: redirect already handled at top of file; keep in case.
+  window.location = 'index.html';
+}
 
 
-const socket = io(API_BASE, { auth: { token } }); // optional token auth for socket
+// const socket = io(API_BASE, { auth: { token } }); // optional token auth for socket
 let currentChatUser = null;
 
 // ---------- DEBUG: log incoming socket events ----------
 window.socket = socket; // expose for console
-// socket.on("connect", () => {
-//   console.log("socket connected", socket.id);
-//   const myId = String(user._id ?? user.id);  // normalize here
-//   socket.emit("user:online", { userId: myId });
 
-//   // socket.emit("user:online", { userId: String(user._id ?? user.id) });
-// });
-// create socket once (keep existing API_BASE/SOCKET_BASE above)
-// const socket = io(SOCKET_BASE || API_BASE, { auth: { token } });
-window.socket = socket; // expose for debug
+
 
 console.log('socket object created ->', socket);
 
@@ -299,6 +336,151 @@ socket.on('notification:new_message', (payload) => {
   }
 });
 
+/* ===== read receipt UI handler =====
+   Place near other socket handlers in js/home.js
+*/
+(function() {
+  // small helper to create/read indicator elements
+  function ensureReadIndicatorElem(userId) {
+    const li = document.querySelector(`[data-user-id="${userId}"]`);
+    if (!li) return null;
+
+    // Try to reuse an existing node
+    let readEl = li.querySelector('.read-indicator');
+    if (!readEl) {
+      readEl = document.createElement('span');
+      readEl.className = 'read-indicator';
+      readEl.style.display = 'inline-block';
+      readEl.style.marginLeft = '8px';
+      readEl.style.padding = '2px 6px';
+      readEl.style.borderRadius = '999px';
+      readEl.style.fontSize = '12px';
+      readEl.style.fontWeight = '600';
+      readEl.style.verticalAlign = 'middle';
+      readEl.style.background = 'transparent';
+      readEl.style.color = '#6c757d';
+      readEl.textContent = 'Read';
+      // Place it after the name but before the unread badge if possible
+      const nameWrap = li.querySelector('.user-name') || li.querySelector('span');
+      if (nameWrap) nameWrap.insertAdjacentElement('afterend', readEl);
+      else li.appendChild(readEl);
+    }
+    return readEl;
+  }
+
+  // show read indicator for a user (or clear if show=false)
+  function showReadIndicator(userId, show = true) {
+    const uid = String(userId);
+    const readEl = ensureReadIndicatorElem(uid);
+    if (!readEl) return;
+    if (show) {
+      readEl.style.display = '';
+      // subtle color change to indicate it's recent
+      readEl.style.background = 'rgba(40,167,69,0.08)'; // light green tint
+      readEl.style.color = '#28a745';
+      // optionally auto-hide after N seconds (so UI doesn't stay forever)
+      if (readEl._hideTimer) clearTimeout(readEl._hideTimer);
+      readEl._hideTimer = setTimeout(() => {
+        // only auto hide if user is not currently viewing the conversation
+        if (String(currentOpenUserId) !== uid && (!currentChatUser || String(currentChatUser._id || currentChatUser.id) !== uid)) {
+          showReadIndicator(uid, false);
+        }
+      }, 6000); // 6s - tweak to taste
+    } else {
+      readEl.style.display = 'none';
+      if (readEl._hideTimer) { clearTimeout(readEl._hideTimer); readEl._hideTimer = null; }
+    }
+  }
+
+  // also optionally show "Read" in chat header when the open chat has been marked read
+  function showReadInChatHeader(userId, show = true) {
+    const header = document.getElementById('chatWith');
+    if (!header) return;
+    // append small span with id for easy clearing
+    let span = document.getElementById(`chatread_${userId}`);
+    if (!span) {
+      span = document.createElement('span');
+      span.id = `chatread_${userId}`;
+      span.className = 'read-indicator chat-header-read';
+      span.style.marginLeft = '10px';
+      span.style.fontSize = '12px';
+      span.style.fontWeight = '600';
+      span.style.color = '#28a745';
+      span.textContent = 'Read';
+      header.appendChild(span);
+    }
+    span.style.display = show ? '' : 'none';
+  }
+
+  // socket event: messages read by other user / this user read other user's messages
+  socket.on('messages:readBy', (payload) => {
+    try {
+      // payload shapes: { conversationWith: me, userId: <who-read> } or { userId, conversationWith }
+      const who = String(payload?.userId ?? payload?.from ?? payload?.by ?? '');
+      const convWith = String(payload?.conversationWith ?? payload?.conversationWithId ?? '');
+      if (!who) return;
+
+      // if the read event indicates they read messages you sent (so you are the conversationWith),
+      // show small "Read" next to the recipient in your user list
+      // If ambiguity exists, we show indicator beside 'who' (the actor)
+      showReadIndicator(who, true);
+
+      // if they read a conversation that is currently open in our UI, show it in header too
+      const openId = String(currentOpenUserId || (currentChatUser && (currentChatUser._id || currentChatUser.id)) || '');
+      if (openId && (openId === who || openId === convWith)) {
+        showReadInChatHeader(openId, true);
+        // hide it after a short time (since the header can get stale)
+        setTimeout(() => showReadInChatHeader(openId, false), 5000);
+      }
+    } catch (err) {
+      console.error('messages:readBy handler error', err, payload);
+    }
+  });
+
+  // clear read indicator when opening chat with that user
+  const origOpenChat = openChatWithUser;
+  window.openChatWithUser = function(userId) {
+    try {
+      origOpenChat(userId);
+    } catch(e){ console.warn(e); }
+    // clear read indicator immediately when user opens chat
+    showReadIndicator(userId, false);
+    showReadInChatHeader(userId, false);
+
+    // optionally notify server that we've opened the chat (you already call messages:markRead)
+    try {
+      const myId = String(user?.id || user?._id || '');
+      if (myId && userId) {
+        socket.emit('messages:markRead', { userId: myId, peerId: String(userId) });
+      }
+    } catch (e) {}
+  };
+
+  // also clear read indicator if a new message is received from that user (they have new activity)
+  socket.on('message:receive', (msg) => {
+    try {
+      const from = String(msg?.from || msg?.senderId || msg?.userId || msg?.fromId || '');
+      if (!from) return;
+      // a new incoming message should remove the previous "Read" indicator
+      showReadIndicator(from, false);
+      // also hide header read for that conversation if open
+      const openId = String(currentOpenUserId || (currentChatUser && (currentChatUser._id || currentChatUser.id)) || '');
+      if (openId && openId === from) showReadInChatHeader(openId, false);
+    } catch (err) {
+      console.error('message:receive -> clear read indicator error', err);
+    }
+  });
+
+  // clear all read indicators when the list is re-rendered (optional)
+  const originalRenderUserList = renderUserList;
+  window.renderUserList = function() {
+    try {
+      originalRenderUserList();
+      // hide any lingering read indicators initially
+      Object.keys(window._backendUserById || {}).forEach(k => showReadIndicator(k, false));
+    } catch(e){ console.warn(e); }
+  };
+})();
 
 window._unreadCounts = window._unreadCounts || {}; // canonical unread store
 
@@ -494,11 +676,36 @@ async function loadUsers() {
         }
       }
 
-      const label = document.createElement('span');
-      label.textContent = u.username || u.name || u.email || 'Unknown';
+      // const label = document.createElement('span');
+      // label.textContent = u.username || u.name || u.email || 'Unknown';
 
-      left.appendChild(avatar);
-      left.appendChild(label);
+      // left.appendChild(avatar);
+      // left.appendChild(label);
+// container for name + about stacked vertically
+const nameAboutWrap = document.createElement('div');
+nameAboutWrap.style.display = 'flex';
+nameAboutWrap.style.flexDirection = 'column';
+nameAboutWrap.style.lineHeight = '1.2';
+
+// name line
+const nameEl = document.createElement('span');
+nameEl.textContent = u.username || u.name || u.email || 'Unknown';
+nameEl.style.fontWeight = '500';
+
+// about line (smaller, muted text)
+if (u.about && u.about.trim() !== '') {
+  const aboutEl = document.createElement('span');
+  aboutEl.textContent = u.about;
+  aboutEl.style.fontSize = '12px';
+  aboutEl.style.color = '#6c757d'; // Bootstrap muted gray
+  nameAboutWrap.appendChild(aboutEl);
+}
+
+nameAboutWrap.insertBefore(nameEl, nameAboutWrap.firstChild);
+
+left.appendChild(avatar);
+left.appendChild(nameAboutWrap);
+
 
       // right: unread badge (hidden by default)
       const right = document.createElement('div');

@@ -20,9 +20,10 @@
     <p id="msg" class="mt-3 text-danger"></p>
     <p class="mt-3">Don't have an account? <a href="register.html">Register</a></p>
   </div>
-
+  <!-- load config first -->
+  <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
-  <script type="module">
+  <!-- <script type="module">
   import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
   const token = localStorage.getItem("token"); // token saved after login
@@ -38,7 +39,24 @@
   socket.on("connect_error", (err) => {
     console.error("❌ connect_error:", err.message);
   });
-</script>
+</script> -->
+<!-- <script type="module">
+    import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
+    const token = localStorage.getItem("token");
+    const SOCKET_BASE = window.SOCKET_BASE || "http://localhost:5000";
+
+    const socket = io(SOCKET_BASE, { auth: { token } });
+
+    socket.on("connect", () => {
+      console.log("Connected as", socket.id);
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("connect_error:", err.message);
+    });
+    
+  </script> -->
 </body>
 </html>
+
