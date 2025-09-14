@@ -130,6 +130,15 @@ app.post('/api/auth/profile', auth, upload.single('image'), async (req, res) => 
     return res.status(500).json({ error: 'Server error' });
   }
 });
+// tiny health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// optional api-prefixed health
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', api: true, time: new Date().toISOString() });
+});
 
 // Optionally expose users listing (if you need it)
 app.get('/api/auth/users', auth, async (req, res) => {
