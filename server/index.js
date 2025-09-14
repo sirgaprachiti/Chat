@@ -131,7 +131,7 @@ app.post('/api/auth/profile', auth, upload.single('image'), async (req, res) => 
   }
 });
 // tiny health check
-app.get('/health', (req, res) => {
+app.get('api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
