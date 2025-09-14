@@ -1,7 +1,4 @@
-// js/home.js
-// const API_BASE = "http://localhost:5000";
-// const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || 'http://localhost:5000';
-// const SOCKET_BASE = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || API_BASE;
+
 
 // origin for HTTP API (no trailing path)
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || 'http://localhost:5000';

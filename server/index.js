@@ -21,6 +21,21 @@ app.get('/api/auth/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
 
+
+
+app.use(cors({
+  origin: [
+    "http://127.0.0.1:5500",   // your frontend dev origin
+    "http://localhost:5500"    // sometimes localhost is used
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // allow OPTIONS explicitly
+  allowedHeaders: ["Content-Type", "Authorization"],    // allow auth headers
+  credentials: true
+}));
+
+// Also make sure Express knows how to respond to OPTIONS
+// app.options("*", cors());
+
 const server = http.createServer(app);
 // Serve uploads statically and configure multer for profile uploads
 const path = require('path');
