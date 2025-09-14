@@ -16,6 +16,11 @@ const chatRoutes = require("./routes/chat");
 const resetRoutes = require("./routes/reset");
 
 const app = express();
+//near top of index.js (after app = express() and middleware)
+app.get('/api/auth/health', (req, res) => {
+  res.status(200).json({ status: 'ok', time: new Date().toISOString() });
+});
+
 const server = http.createServer(app);
 // Serve uploads statically and configure multer for profile uploads
 const path = require('path');
@@ -130,15 +135,9 @@ app.post('/api/auth/profile', auth, upload.single('image'), async (req, res) => 
     return res.status(500).json({ error: 'Server error' });
   }
 });
-// tiny health check
-app.get('api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
-});
 
-// optional api-prefixed health
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', api: true, time: new Date().toISOString() });
-});
+// also add a generic health if you want
+app.get('/api/health', (req, res) => res.send('OK'));
 
 // Optionally expose users listing (if you need it)
 app.get('/api/auth/users', auth, async (req, res) => {
