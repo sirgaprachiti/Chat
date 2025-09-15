@@ -17,60 +17,53 @@ const resetRoutes = require("./routes/reset");
 
 const app = express();
 
+// --- allowed origins ------------------------------------------------------
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://chat-2-wvf1.onrender.com';
-
-// If you have more than one deployed frontend add them here:
 const PROD_FRONTENDS = [
-  'https://chat-2-wvf1.onrender.com',   // the one your browser reports
-  'https://chat-1-2ru.onrender.com'      // if you also use this
+  'https://chat-2-wvf1.onrender.com',
+  'https://chat-1-2ru.onrender.com'
 ];
-
 const DEV_ORIGINS = [
   'http://127.0.0.1:5500',
   'http://localhost:5500',
   'http://localhost:3000'
 ];
 
-// DEBUG / TEMP preflight middleware — insert after `const app = express();`
 const allowedOrigins = Array.from(new Set([FRONTEND_ORIGIN, ...PROD_FRONTENDS, ...DEV_ORIGINS]));
 
-
-// helper to return allowed origin (echo if allowed, otherwise false)
+// --- simple explicit preflight handler (temporary, robust) ----------------
 function getAllowedOrigin(origin) {
-  if (!origin) return null;          // non-browser (curl/postman) -> no origin
+  if (!origin) return null; // curl/postman/no-origin
   return allowedOrigins.includes(origin) ? origin : null;
 }
 
+// Handle CORS preflight right away so Express doesn't 404 OPTIONS
 app.use((req, res, next) => {
-  // log for debugging
   console.log('PRELIGHT LOG - method:', req.method, 'url:', req.originalUrl, 'origin:', req.get('Origin'));
 
-  // Always set common CORS headers if origin allowed
   const origin = getAllowedOrigin(req.get('Origin'));
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin'); // helpful for caches
+    res.setHeader('Vary', 'Origin');
   }
 
-  // If browser preflight (OPTIONS) — answer here
   if (req.method === 'OPTIONS') {
-    // mirror the requested headers if present, otherwise set a sane default
     const reqHeaders = req.header('Access-Control-Request-Headers') || 'Content-Type, Authorization, X-Requested-With';
     res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', reqHeaders);
-    return res.status(204).end(); // No Content — preflight satisfied
+    return res.status(204).end();
   }
 
   next();
 });
+// -------------------------------------------------------------------------
 
-
+// Now also use the cors() middleware for normal requests (optional/redundant)
 const cors = require('cors');
-
 const corsOptions = {
   origin: (origin, cb) => {
-    console.log('CORS incoming origin:', origin); // debug
+    console.log('CORS incoming origin (corsOptions):', origin);
     if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
     return cb(new Error('Not allowed by CORS: ' + origin));
@@ -79,63 +72,9 @@ const corsOptions = {
   methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization','X-Requested-With']
 };
+app.use(cors(corsOptions));
+// app.options('*', cors(corsOptions)); // ensure express answers OPTIONS too
 
-app.use(cors(corsOptions));   // ✅ must be before routes
-
-// DEBUG / TEMP preflight middleware — insert after `const app = express();`
-// const allowedOrigins = Array.from(new Set([ /* your existing allowedOrigins */ ]));
-
-// helper to return allowed origin (echo if allowed, otherwise false)
-function getAllowedOrigin(origin) {
-  if (!origin) return null;          // non-browser (curl/postman) -> no origin
-  return allowedOrigins.includes(origin) ? origin : null;
-}
-
-app.use((req, res, next) => {
-  // log for debugging
-  console.log('PRELIGHT LOG - method:', req.method, 'url:', req.originalUrl, 'origin:', req.get('Origin'));
-
-  // Always set common CORS headers if origin allowed
-  const origin = getAllowedOrigin(req.get('Origin'));
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin'); // helpful for caches
-  }
-
-  // If browser preflight (OPTIONS) — answer here
-  if (req.method === 'OPTIONS') {
-    // mirror the requested headers if present, otherwise set a sane default
-    const reqHeaders = req.header('Access-Control-Request-Headers') || 'Content-Type, Authorization, X-Requested-With';
-    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', reqHeaders);
-    return res.status(204).end(); // No Content — preflight satisfied
-  }
-
-  next();
-});
-
-
-// const cors = require('cors');
-
-
-// // configure CORS
-// const corsOptions = {
-//   origin: (origin, cb) => {
-//     console.log('CORS incoming origin:', origin); // debug
-//     if (!origin) return cb(null, true);
-//     if (allowedOrigins.includes(origin)) return cb(null, true);
-//     return cb(new Error('Not allowed by CORS: ' + origin));
-//   },
-//   credentials: true,
-//   methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
-//   allowedHeaders: ['Content-Type','Authorization','X-Requested-With']
-// };
-
-
-
-
-// app.use(cors(corsOptions));  
 
 
 app.get('/api/auth/health', (req, res) => {
@@ -198,6 +137,25 @@ const io = new Server(server, {
   }
 });
 global.io = io;
+// --- CORS preflight handler for /api/auth/* (use BEFORE mounting authRoutes) ---
+app.options(/^\/api\/auth(\/.*)?$/, (req, res) => {
+  const origin = req.get('Origin') || '';
+  // echo the origin back only if allowed
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  }
+
+  const reqHeaders = req.header('Access-Control-Request-Headers') || 'Content-Type, Authorization, X-Requested-With';
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', reqHeaders);
+
+  // 204 No Content — satisfied preflight
+  return res.sendStatus(204);
+});
+
+
 
 
 app.use("/api/auth", authRoutes);
