@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const jwt = require("jsonwebtoken");
-const cors = require("cors");
+
 const http = require("http");
 const { Server } = require("socket.io");
 const connectDB = require("./config/db");
@@ -16,25 +16,65 @@ const chatRoutes = require("./routes/chat");
 const resetRoutes = require("./routes/reset");
 
 const app = express();
-//near top of index.js (after app = express() and middleware)
+
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://chat-2-wvf1.onrender.com';
+
+// If you have more than one deployed frontend add them here:
+const PROD_FRONTENDS = [
+  'https://chat-2-wvf1.onrender.com',   // the one your browser reports
+  'https://chat-1-2ru.onrender.com'      // if you also use this
+];
+
+const DEV_ORIGINS = [
+  'http://127.0.0.1:5500',
+  'http://localhost:5500',
+  'http://localhost:3000'
+];
+
+const allowedOrigins = Array.from(new Set([FRONTEND_ORIGIN, ...PROD_FRONTENDS, ...DEV_ORIGINS]));
+
+const cors = require('cors');
+
+const corsOptions = {
+  origin: (origin, cb) => {
+    console.log('CORS incoming origin:', origin); // debug
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('Not allowed by CORS: ' + origin));
+  },
+  credentials: true,
+  methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With']
+};
+
+app.use(cors(corsOptions));   // ✅ must be before routes
+
+
+// const cors = require('cors');
+
+
+// // configure CORS
+// const corsOptions = {
+//   origin: (origin, cb) => {
+//     console.log('CORS incoming origin:', origin); // debug
+//     if (!origin) return cb(null, true);
+//     if (allowedOrigins.includes(origin)) return cb(null, true);
+//     return cb(new Error('Not allowed by CORS: ' + origin));
+//   },
+//   credentials: true,
+//   methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+//   allowedHeaders: ['Content-Type','Authorization','X-Requested-With']
+// };
+
+
+
+
+// app.use(cors(corsOptions));  
+
+
 app.get('/api/auth/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
-
-
-
-app.use(cors({
-  origin: [
-    "http://127.0.0.1:5500",   // your frontend dev origin
-    "http://localhost:5500"    // sometimes localhost is used
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // allow OPTIONS explicitly
-  allowedHeaders: ["Content-Type", "Authorization"],    // allow auth headers
-  credentials: true
-}));
-
-// Also make sure Express knows how to respond to OPTIONS
-// app.options("*", cors());
 
 const server = http.createServer(app);
 // Serve uploads statically and configure multer for profile uploads
@@ -81,27 +121,17 @@ const upload = multer({
 
 
  app.use(express.json());
-// app.use(cors({ origin: "http://localhost:3000", credentials: true }));
-const allowedOrigins = [
-  "http://localhost:3000",   // React dev (if you use it later)
-  "http://127.0.0.1:5500",  // Live Server / Python / VSCode
-  "http://localhost:5500"   // if sometimes served with localhost instead of 127.0.0.1
-];
 
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error("Not allowed by CORS: " + origin));
-  },
-  credentials: true
-}));
-
-
+// after creating `server` (http.createServer(app))
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,   // same list as express
+    methods: ['GET','POST'],
+    credentials: true
+  }
+});
+global.io = io;
 
 
 app.use("/api/auth", authRoutes);
@@ -168,8 +198,9 @@ const friendsRouter = require('./routes/friends');
 app.use('/api/friends', friendsRouter);
 
 
-const io = new Server(server, { cors: { origin: "*" } });
-global.io = io;
+
+
+
 
 // middleware: verify token and attach socket.userId, join user room
 io.use((socket, next) => {
