@@ -21,7 +21,7 @@ const app = express();
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://chat-2-wvf1.onrender.com';
 const PROD_FRONTENDS = [
   'https://chat-2-wvf1.onrender.com',
-  'https://chat-1-2rru.onrender.com'
+  'https://chat-vkv3.onrender.com'
 ];
 const DEV_ORIGINS = [
   'http://127.0.0.1:5500',
@@ -66,7 +66,7 @@ const corsOptions = {
     console.log('CORS incoming origin (corsOptions):', origin);
     if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error('Not allowed by CORS: ' + origin));
+    cb(new Error('Not allowed by CORS: ' + origin));
   },
   credentials: true,
   methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
