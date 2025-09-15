@@ -31,7 +31,40 @@ const DEV_ORIGINS = [
   'http://localhost:3000'
 ];
 
+// DEBUG / TEMP preflight middleware — insert after `const app = express();`
 const allowedOrigins = Array.from(new Set([FRONTEND_ORIGIN, ...PROD_FRONTENDS, ...DEV_ORIGINS]));
+
+
+// helper to return allowed origin (echo if allowed, otherwise false)
+function getAllowedOrigin(origin) {
+  if (!origin) return null;          // non-browser (curl/postman) -> no origin
+  return allowedOrigins.includes(origin) ? origin : null;
+}
+
+app.use((req, res, next) => {
+  // log for debugging
+  console.log('PRELIGHT LOG - method:', req.method, 'url:', req.originalUrl, 'origin:', req.get('Origin'));
+
+  // Always set common CORS headers if origin allowed
+  const origin = getAllowedOrigin(req.get('Origin'));
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin'); // helpful for caches
+  }
+
+  // If browser preflight (OPTIONS) — answer here
+  if (req.method === 'OPTIONS') {
+    // mirror the requested headers if present, otherwise set a sane default
+    const reqHeaders = req.header('Access-Control-Request-Headers') || 'Content-Type, Authorization, X-Requested-With';
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', reqHeaders);
+    return res.status(204).end(); // No Content — preflight satisfied
+  }
+
+  next();
+});
+
 
 const cors = require('cors');
 
@@ -48,6 +81,39 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));   // ✅ must be before routes
+
+// DEBUG / TEMP preflight middleware — insert after `const app = express();`
+// const allowedOrigins = Array.from(new Set([ /* your existing allowedOrigins */ ]));
+
+// helper to return allowed origin (echo if allowed, otherwise false)
+function getAllowedOrigin(origin) {
+  if (!origin) return null;          // non-browser (curl/postman) -> no origin
+  return allowedOrigins.includes(origin) ? origin : null;
+}
+
+app.use((req, res, next) => {
+  // log for debugging
+  console.log('PRELIGHT LOG - method:', req.method, 'url:', req.originalUrl, 'origin:', req.get('Origin'));
+
+  // Always set common CORS headers if origin allowed
+  const origin = getAllowedOrigin(req.get('Origin'));
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin'); // helpful for caches
+  }
+
+  // If browser preflight (OPTIONS) — answer here
+  if (req.method === 'OPTIONS') {
+    // mirror the requested headers if present, otherwise set a sane default
+    const reqHeaders = req.header('Access-Control-Request-Headers') || 'Content-Type, Authorization, X-Requested-With';
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', reqHeaders);
+    return res.status(204).end(); // No Content — preflight satisfied
+  }
+
+  next();
+});
 
 
 // const cors = require('cors');
