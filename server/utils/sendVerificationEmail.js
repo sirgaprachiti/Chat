@@ -1,16 +1,34 @@
+// // // const nodemailer = require('nodemailer');
+
+// // // const transporter = nodemailer.createTransport({
+// // //   host: process.env.SMTP_HOST,
+// // //   port: Number(process.env.SMTP_PORT || 587),
+// // //   secure: process.env.SMTP_SECURE === 'true', // false for 587
+// // //   auth: {
+// // //     user: process.env.SMTP_USER,
+// // //     pass: process.env.SMTP_PASS
+// // //   },
+// // //   tls: {
+// // //     // allow self-signed certs if any; leave true/omit in production for stricter validation
+// // //     rejectUnauthorized: false
+// // //   }
+// // // });
+
+// // // transporter.verify()
+// // //   .then(() => console.log('SMTP ready'))
+// // //   .catch(err => console.warn('SMTP verify failed:', err.message));
+
+
+// // // utils/sendVerificationEmail.js
 // // const nodemailer = require('nodemailer');
 
 // // const transporter = nodemailer.createTransport({
 // //   host: process.env.SMTP_HOST,
 // //   port: Number(process.env.SMTP_PORT || 587),
-// //   secure: process.env.SMTP_SECURE === 'true', // false for 587
+// //   secure: process.env.SMTP_SECURE === 'true',
 // //   auth: {
 // //     user: process.env.SMTP_USER,
 // //     pass: process.env.SMTP_PASS
-// //   },
-// //   tls: {
-// //     // allow self-signed certs if any; leave true/omit in production for stricter validation
-// //     rejectUnauthorized: false
 // //   }
 // // });
 
@@ -18,80 +36,150 @@
 // //   .then(() => console.log('SMTP ready'))
 // //   .catch(err => console.warn('SMTP verify failed:', err.message));
 
+// // module.exports = async function sendVerificationEmail(toEmail, token) {
+// //   const verifyUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/verify-email?token=${token}`;
 
-// // utils/sendVerificationEmail.js
+// //   console.log('EMAIL -> sending verify URL:', url);
+// //   const html = `
+// //     <p>Hello 👋</p>
+// //     <p>Please verify your email by clicking the link below:</p>
+// //     <p><a href="${verifyUrl}">Verify my email</a></p>
+// //     <p>If the link doesn't work, copy & paste this URL into your browser:<br>${verifyUrl}</p>
+// //     <p>This link expires in 24 hours.</p>
+// //   `;
+// //   await transporter.sendMail({
+// //     from: process.env.EMAIL_FROM,
+// //     to: toEmail,
+// //     subject: 'Verify your ChatApp account',
+// //     html
+// //   });
+// // };
+
+
+// // server/utils/sendVerificationEmail.js
 // const nodemailer = require('nodemailer');
 
-// const transporter = nodemailer.createTransport({
-//   host: process.env.SMTP_HOST,
-//   port: Number(process.env.SMTP_PORT || 587),
-//   secure: process.env.SMTP_SECURE === 'true',
-//   auth: {
-//     user: process.env.SMTP_USER,
-//     pass: process.env.SMTP_PASS
-//   }
-// });
+// module.exports = async function sendVerificationEmail(email, token) {
+//   const backendHost = process.env.BACKEND_HOST || 'http://localhost:5000';
+//   // build the url variable (important!)
+//   const url = `${backendHost}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
 
-// transporter.verify()
-//   .then(() => console.log('SMTP ready'))
-//   .catch(err => console.warn('SMTP verify failed:', err.message));
+//   console.log('EMAIL -> verify url to send:', url); // debug only
 
-// module.exports = async function sendVerificationEmail(toEmail, token) {
-//   const verifyUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/verify-email?token=${token}`;
+//   // configure transporter (example using Gmail - replace with your config)
+//   const transporter = nodemailer.createTransport({
+//     host: process.env.SMTP_HOST || 'smtp.gmail.com',
+//     port: Number(process.env.SMTP_PORT) || 587,
+//     secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+//     auth: {
+//       user: process.env.SMTP_USER,
+//       pass: process.env.SMTP_PASS
+//     }
+//   });
 
-//   console.log('EMAIL -> sending verify URL:', url);
 //   const html = `
 //     <p>Hello 👋</p>
 //     <p>Please verify your email by clicking the link below:</p>
-//     <p><a href="${verifyUrl}">Verify my email</a></p>
-//     <p>If the link doesn't work, copy & paste this URL into your browser:<br>${verifyUrl}</p>
-//     <p>This link expires in 24 hours.</p>
+//     <p><a href="${url}">Verify my email</a></p>
+//     <p>If the link doesn't work, copy & paste this URL into your browser:</p>
+//     <p><small>${url}</small></p>
 //   `;
-//   await transporter.sendMail({
-//     from: process.env.EMAIL_FROM,
-//     to: toEmail,
-//     subject: 'Verify your ChatApp account',
+
+//   const info = await transporter.sendMail({
+//     from: process.env.EMAIL_FROM || 'no-reply@example.com',
+//     to: email,
+//     subject: 'Please verify your email',
 //     html
 //   });
+
+//   // optional debug log
+//   console.log('Verification email sent:', info?.messageId || info);
 // };
 
 
 // server/utils/sendVerificationEmail.js
+const sgMail = require('@sendgrid/mail');
 const nodemailer = require('nodemailer');
 
-module.exports = async function sendVerificationEmail(email, token) {
-  const backendHost = process.env.BACKEND_HOST || 'http://localhost:5000';
-  // build the url variable (important!)
-  const url = `${backendHost}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+const FROM = process.env.EMAIL_FROM || process.env.MAIL_FROM || 'no-reply@example.com';
+const BACKEND_HOST = process.env.BACKEND_HOST || 'http://localhost:5000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5500';
 
-  console.log('EMAIL -> verify url to send:', url); // debug only
-
-  // configure transporter (example using Gmail - replace with your config)
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
-
-  const html = `
-    <p>Hello 👋</p>
-    <p>Please verify your email by clicking the link below:</p>
-    <p><a href="${url}">Verify my email</a></p>
-    <p>If the link doesn't work, copy & paste this URL into your browser:</p>
-    <p><small>${url}</small></p>
-  `;
-
-  const info = await transporter.sendMail({
-    from: process.env.EMAIL_FROM || 'no-reply@example.com',
-    to: email,
+// Use SendGrid API if available (preferred on Render)
+async function sendViaSendGrid(to, token) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  const verifyUrl = `${BACKEND_HOST}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+  const msg = {
+    to,
+    from: FROM,
     subject: 'Please verify your email',
-    html
+    text: `Verify your email by visiting: ${verifyUrl}`,
+    html: `
+      <p>Hello 👋</p>
+      <p>Please verify your email by clicking the link below:</p>
+      <p><a href="${verifyUrl}">Verify my email</a></p>
+      <p>If the link doesn't work, copy & paste this URL into your browser:</p>
+      <pre>${verifyUrl}</pre>
+    `
+  };
+  const res = await sgMail.send(msg);
+  return res;
+}
+
+async function sendViaNodemailer(to, token) {
+  // if SMTP envs present use them, otherwise create Ethereal test account for dev
+  let transporter;
+  if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      logger: true,
+      debug: true
+    });
+  } else {
+    const testAccount = await nodemailer.createTestAccount();
+    transporter = nodemailer.createTransport({
+      host: 'smtp.ethereal.email',
+      port: 587,
+      auth: { user: testAccount.user, pass: testAccount.pass }
+    });
+    console.log('Ethereal test account created:', testAccount);
+  }
+
+  const verifyUrl = `${BACKEND_HOST}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+  const info = await transporter.sendMail({
+    from: FROM,
+    to,
+    subject: 'Please verify your email',
+    text: `Verify your email: ${verifyUrl}`,
+    html: `
+      <p>Hello 👋</p>
+      <p>Please verify your email by clicking the link below:</p>
+      <p><a href="${verifyUrl}">Verify my email</a></p>
+      <p>If the link doesn't work, copy & paste this URL into your browser:</p>
+      <pre>${verifyUrl}</pre>
+    `
   });
 
-  // optional debug log
-  console.log('Verification email sent:', info?.messageId || info);
+  const preview = nodemailer.getTestMessageUrl ? nodemailer.getTestMessageUrl(info) : undefined;
+  return { nodemailerInfo: info, preview };
+}
+
+module.exports = async function sendVerificationEmail(email, token) {
+  try {
+    if (process.env.SENDGRID_API_KEY) {
+      const res = await sendViaSendGrid(email, token);
+      console.log('sendVerificationEmail: SendGrid result:', Array.isArray(res) ? res[0] : res);
+      return res;
+    } else {
+      const res = await sendViaNodemailer(email, token);
+      console.log('sendVerificationEmail: Nodemailer result:', res);
+      return res;
+    }
+  } catch (err) {
+    console.error('sendVerificationEmail error:', err && err.stack ? err.stack : err);
+    throw err;
+  }
 };
