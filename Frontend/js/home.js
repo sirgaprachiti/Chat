@@ -589,9 +589,13 @@ window._unreadCounts = window._unreadCounts || {}; // canonical unread store
 // }
 async function loadUsers() {
   try {
-    const res = await fetch(`${API_BASE}/api/auth/users`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const base = (window.APP_CONFIG && (window.APP_CONFIG.AUTH_BASE || window.APP_CONFIG.API_BASE)) || (window.AUTH_BASE || API_BASE);
+const url = base.replace(/\/$/, '') + '/users';
+const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+
+    // // const res = await fetch(`${API_BASE}/api/auth/users`, {
+    //   headers: { Authorization: `Bearer ${token}` }
+    // });
     if (!res.ok) {
       console.error('loadUsers fetch failed', res.status);
       return;
@@ -907,9 +911,13 @@ async function startChat(u) {
 // load conversation with selected user
 async function loadMessages(peerId) {
   try {
-    const res = await fetch(`${API_BASE}/api/chat/${peerId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    // const res = await fetch(`${API_BASE}/api/chat/${peerId}`, {
+    //   headers: { Authorization: `Bearer ${token}` }
+    const host = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || API_BASE;
+const url = host.replace(/\/$/, '') + `/api/chat/${encodeURIComponent(peerId)}`;
+const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+
+    // });
     const messages = await res.json();
     messages.forEach(m => appendMessage(m));
     scrollChatToBottom();
@@ -956,13 +964,16 @@ function scrollChatToBottom() {
 // Fetch a protected GridFS file and return { blob, contentType }
 // API_BASE should be set to your API base, e.g. "/api"
 async function fetchProtectedFile(imageId) {
-  const url = `${API_BASE.replace(/\/$/, "")}/api/chat/image/${imageId}`;
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token") || ""}`
-    }
-  });
+  // const url = `${API_BASE.replace(/\/$/, "")}/api/chat/image/${imageId}`;
+  // const res = await fetch(url, {
+  //   method: "GET",
+  //   headers: {
+  //     Authorization: `Bearer ${localStorage.getItem("token") || ""}`
+  //   }
+  // });
+  const host = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || API_BASE;
+const url = host.replace(/\/$/, '') + `/api/chat/image/${encodeURIComponent(imageId)}`;
+
   if (!res.ok) {
     throw new Error(`Failed to fetch file: ${res.status}`);
   }
@@ -1040,11 +1051,19 @@ document.getElementById("sendBtn").onclick = async () => {
     fd.append("receiverId", currentChatUser._id);
 
     try {
-      const res = await fetch(`${API_BASE}/api/chat/send-image`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd
-      });
+      // const res = await fetch(`${API_BASE}/api/chat/send-image`, {
+      const host = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || API_BASE;
+const url = host.replace(/\/$/, '') + '/api/chat/send-image';
+const res = await fetch(url, { method:'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+
+      //   method: "POST",
+      //   headers: { Authorization: `Bearer ${token}` },
+      //   body: fd
+      // });
+//       const host = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || API_BASE;
+// const url = host.replace(/\/$/, '') + '/api/chat/send-image';
+// const res = await fetch(url, { method:'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+
       const data = await res.json();
       if (res.ok) {
         // data.msg is saved message doc (should include imageId)
@@ -1067,11 +1086,19 @@ document.getElementById("sendBtn").onclick = async () => {
 
   try {
     // send to backend to save
-    const res = await fetch(`${API_BASE}/api/chat/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ receiverId: currentChatUser._id, text })
-    });
+    // const res = await fetch(`${API_BASE}/api/chat/send`, {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    //   body: JSON.stringify({ receiverId: currentChatUser._id, text })
+    // });
+    const host = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || API_BASE;
+const url = host.replace(/\/$/, '') + '/api/chat/send';
+const res = await fetch(url, {
+  method: 'POST',
+  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+  body: JSON.stringify({ receiverId: currentChatUser._id, text })
+});
+
     const data = await res.json();
     if (res.ok) {
       socket.emit("message:send", data.msg || { senderId: user.id, receiverId: currentChatUser._id, text });
@@ -1368,6 +1395,99 @@ closeBtn.addEventListener('click', () => {
     fr.readAsDataURL(f);
   });
 // Replace existing saveBtn handler with this code (inside your profile modal IIFE)
+// if (saveBtn) {
+//   saveBtn.addEventListener('click', async () => {
+//     const nameEl = document.getElementById('profileName');
+//     const aboutEl = document.getElementById('profileAbout');
+//     const fileInput = document.getElementById('profileImageInput');
+
+//     const newName = (nameEl?.value || '').trim();
+//     if (!newName) return alert('Name cannot be empty');
+
+//     // Build FormData with text fields + optional file
+//     const fd = new FormData();
+//     fd.append('name', newName);
+//     fd.append('about', (aboutEl?.value || '').trim());
+//     if (fileInput && fileInput.files && fileInput.files[0]) {
+//       fd.append('image', fileInput.files[0]);
+//     }
+
+//     // UI feedback
+//     saveBtn.disabled = true;
+//     const prevText = saveBtn.textContent;
+//     saveBtn.textContent = 'Saving...';
+
+//     try {
+//       // Use APP_CONFIG if present, otherwise fall back to /api/auth/profile
+//       const apiRoot = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) ? window.APP_CONFIG.API_BASE : ("/api/auth");
+//       // API_BASE in APP_CONFIG might include '/api/auth' already; ensure we remove trailing parts
+//       let profileUrl = apiRoot;
+//       if (!profileUrl.endsWith('/profile')) {
+//         // If APP_CONFIG.API_BASE is ".../api/auth" use that + /profile, otherwise append correctly
+//         profileUrl = profileUrl.replace(/\/$/, '') + '/profile';
+//       }
+
+//       const token = localStorage.getItem('token');
+//       const headers = {};
+//       if (token) headers.Authorization = `Bearer ${token}`;
+
+//       const res = await fetch(profileUrl, {
+//         method: 'POST',
+//         headers: headers, // do NOT set Content-Type when sending FormData
+//         body: fd
+//       });
+
+//       const data = await res.json().catch(()=>({}));
+//       if (!res.ok) {
+//         console.error('Profile update failed', data);
+//         alert(data.error || data.message || 'Profile update failed');
+//         return;
+//       }
+
+//       // server returns { user: { ... } } or user object directly
+//       const updatedUser = data.user || data;
+//       if (!updatedUser) {
+//         alert('Invalid server response');
+//         return;
+//       }
+
+//       // Persist locally and update global user
+//       localStorage.setItem('user', JSON.stringify(updatedUser));
+//       window.user = updatedUser;
+
+//       // update header avatar and username UI
+//       try { renderUserAvatar('meLabel', updatedUser); } catch (e) { console.warn(e); }
+//       const meText = document.getElementById('meText');
+//       if (meText) meText.textContent = updatedUser.username || '';
+
+//       // update profile modal fields (about/name/avatar preview)
+//       document.getElementById('profileName').value = updatedUser.username || '';
+//       const aboutElNow = document.getElementById('profileAbout');
+//       if (aboutElNow) aboutElNow.value = updatedUser.about || '';
+
+//       // close modal (bootstrap-aware)
+//       const profileModalEl = document.getElementById('profileModal');
+//       if (typeof bootstrap !== 'undefined' && profileModalEl) {
+//         try { bootstrap.Modal.getInstance(profileModalEl)?.hide(); } catch(e){ profileModalEl.classList.remove('show'); profileModalEl.style.display='none'; }
+//       } else if (profileModalEl) {
+//         profileModalEl.classList.remove('show');
+//         profileModalEl.style.display = 'none';
+//       }
+
+//       // clear file input & temp preview state
+//       if (fileInput) fileInput.value = '';
+//       // if you used a temp dataURL preview variable, clear it too
+
+//     } catch (err) {
+//       console.error('Profile save error', err);
+//       alert('Failed to save profile (network error)');
+//     } finally {
+//       saveBtn.disabled = false;
+//       saveBtn.textContent = prevText || 'Save';
+//     }
+//   });
+// }
+// Replace your existing saveBtn handler with this block (paste inside the profile modal IIFE)
 if (saveBtn) {
   saveBtn.addEventListener('click', async () => {
     const nameEl = document.getElementById('profileName');
@@ -1391,28 +1511,33 @@ if (saveBtn) {
     saveBtn.textContent = 'Saving...';
 
     try {
-      // Use APP_CONFIG if present, otherwise fall back to /api/auth/profile
-      const apiRoot = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) ? window.APP_CONFIG.API_BASE : ("/api/auth");
-      // API_BASE in APP_CONFIG might include '/api/auth' already; ensure we remove trailing parts
-      let profileUrl = apiRoot;
-      if (!profileUrl.endsWith('/profile')) {
-        // If APP_CONFIG.API_BASE is ".../api/auth" use that + /profile, otherwise append correctly
-        profileUrl = profileUrl.replace(/\/$/, '') + '/profile';
+      // runtime-aware base: prefer APP_CONFIG.AUTH_BASE or API_BASE
+      const apiRoot = (window.APP_CONFIG && (window.APP_CONFIG.AUTH_BASE || window.APP_CONFIG.API_BASE)) || API_BASE;
+      // If apiRoot already ends with /api/auth use /profile, otherwise add /api/auth/profile
+      let profileUrl;
+      if (apiRoot.replace(/\/$/, '').endsWith('/api/auth')) {
+        profileUrl = apiRoot.replace(/\/$/, '') + '/profile';
+      } else if (apiRoot.includes('/api/auth')) {
+        profileUrl = apiRoot.replace(/\/$/, '') + '/profile';
+      } else {
+        // apiRoot is likely just host (e.g. https://chat-server-8310.onrender.com)
+        profileUrl = apiRoot.replace(/\/$/, '') + '/api/auth/profile';
       }
 
       const token = localStorage.getItem('token');
       const headers = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
+      // IMPORTANT: do NOT set Content-Type when sending FormData
       const res = await fetch(profileUrl, {
         method: 'POST',
-        headers: headers, // do NOT set Content-Type when sending FormData
+        headers: headers,
         body: fd
       });
 
       const data = await res.json().catch(()=>({}));
       if (!res.ok) {
-        console.error('Profile update failed', data);
+        console.error('Profile update failed', res.status, data);
         alert(data.error || data.message || 'Profile update failed');
         return;
       }
@@ -1449,7 +1574,7 @@ if (saveBtn) {
 
       // clear file input & temp preview state
       if (fileInput) fileInput.value = '';
-      // if you used a temp dataURL preview variable, clear it too
+      lastSelectedDataUrl = null;
 
     } catch (err) {
       console.error('Profile save error', err);
@@ -1462,81 +1587,7 @@ if (saveBtn) {
 }
 
   
-// if (saveBtn) {
-//   saveBtn.addEventListener('click', async () => {
-//     const nameEl = document.getElementById('profileName');
-//     const aboutEl = document.getElementById('profileAbout');
-//     const fileInput = document.getElementById('profileImageInput');
 
-//     const newName = (nameEl?.value || '').trim();
-//     if (!newName) return alert('Name cannot be empty');
-
-//     // Build FormData with text fields + optional file
-//     const fd = new FormData();
-//     fd.append('name', newName);
-//     fd.append('about', (aboutEl?.value || '').trim());
-//     if (fileInput && fileInput.files && fileInput.files[0]) {
-//       fd.append('image', fileInput.files[0]);
-//     }
-
-//     // UI feedback
-//     saveBtn.disabled = true;
-//     const prevText = saveBtn.textContent;
-//     saveBtn.textContent = 'Saving...';
-
-//     try {
-//       const res = await fetch(`${API_BASE.replace(/\/$/, "")}/api/auth/profile`, {
-//         method: 'POST',
-//         headers: {
-//           Authorization: `Bearer ${token}` // IMPORTANT: do NOT set Content-Type
-//         },
-//         body: fd
-//       });
-
-//       const data = await res.json().catch(()=>({}));
-//       if (!res.ok) {
-//         console.error('Profile update failed', data);
-//         alert(data.error || 'Profile update failed');
-//         return;
-//       }
-
-//       // server returns { user: { ... } }
-//       const updatedUser = data.user || data;
-//       if (!updatedUser) {
-//         alert('Invalid server response');
-//         return;
-//       }
-
-//       // persist locally and update global user
-//       localStorage.setItem('user', JSON.stringify(updatedUser));
-//       window.user = updatedUser;
-
-//       // update header avatar and username UI
-//       try { renderUserAvatar('meLabel', updatedUser); } catch (e) { console.warn(e); }
-//       const meText = document.getElementById('meText');
-//       if (meText) meText.textContent = updatedUser.username || '';
-
-//       // close modal (bootstrap-aware)
-//       const profileModalEl = document.getElementById('profileModal');
-//       if (typeof bootstrap !== 'undefined' && profileModalEl) {
-//         try { bootstrap.Modal.getInstance(profileModalEl)?.hide(); } catch(e){ profileModalEl.classList.remove('show'); profileModalEl.style.display='none'; }
-//       } else if (profileModalEl) {
-//         profileModalEl.classList.remove('show');
-//         profileModalEl.style.display = 'none';
-//       }
-
-//       // clear file input & temp preview state
-//       if (fileInput) fileInput.value = '';
-//       lastSelectedDataUrl = null;
-//     } catch (err) {
-//       console.error('Profile save error', err);
-//       alert('Failed to save profile (network error)');
-//     } finally {
-//       saveBtn.disabled = false;
-//       saveBtn.textContent = prevText || 'Save';
-//     }
-//   });
-// }
 
 
   // If modal closed via bootstrap, cleanup temp state

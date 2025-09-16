@@ -80,24 +80,53 @@
 
 
 // Frontend/js/config.js
+// (function() {
+//   const defaultHost = 'http://localhost:5000';
+//   const prodHost ="https://chat-server-8310.onrender.com";
+// // 'https://chat-1-2ru.onrender.com'; // your backend on Render
+
+//   // detect if running on Render (any *.onrender.com frontend)
+//   const isOnRender = location.hostname.endsWith('.onrender.com');
+
+//   window.APP_CONFIG = {
+//     API_HOST: isOnRender ? prodHost : defaultHost,
+//     SOCKET_BASE: isOnRender ? prodHost : defaultHost,
+//     AUTH_BASE: (isOnRender ? prodHost : defaultHost) + '/api/auth'
+//   };
+
+//   // backwards-compat
+//   window.API_HOST = window.APP_CONFIG.API_HOST;
+//   window.SOCKET_BASE = window.APP_CONFIG.SOCKET_BASE;
+//   window.AUTH_BASE = window.APP_CONFIG.AUTH_BASE;
+
+//   console.debug('CONFIG loaded →', window.APP_CONFIG);
+// })();
+
 (function() {
   const defaultHost = 'http://localhost:5000';
-  const prodHost ="https://chat-server-8310.onrender.com";
-// 'https://chat-1-2ru.onrender.com'; // your backend on Render
+  const prodHost = "https://chat-server-8310.onrender.com";
 
-  // detect if running on Render (any *.onrender.com frontend)
-  const isOnRender = location.hostname.endsWith('.onrender.com');
+  // consider production when hostname is onrender.com OR matches your frontend host
+  const hostname = (location.hostname || '').toLowerCase();
+  const isOnRender = hostname.endsWith('.onrender.com') || hostname === 'chat-frontend-36ep.onrender.com';
 
   window.APP_CONFIG = {
     API_HOST: isOnRender ? prodHost : defaultHost,
     SOCKET_BASE: isOnRender ? prodHost : defaultHost,
-    AUTH_BASE: (isOnRender ? prodHost : defaultHost) + '/api/auth'
+    AUTH_BASE: (isOnRender ? prodHost : defaultHost).replace(/\/$/, '') + '/api/auth'
   };
 
-  // backwards-compat
   window.API_HOST = window.APP_CONFIG.API_HOST;
   window.SOCKET_BASE = window.APP_CONFIG.SOCKET_BASE;
   window.AUTH_BASE = window.APP_CONFIG.AUTH_BASE;
 
   console.debug('CONFIG loaded →', window.APP_CONFIG);
 })();
+function getApiHost() {
+  return (window.APP_CONFIG && (window.APP_CONFIG.API_BASE || window.APP_CONFIG.AUTH_BASE || window.APP_CONFIG.API_HOST)) || window.API_BASE || 'http://localhost:5000';
+}
+function getAuthBase() {
+  return (window.APP_CONFIG && (window.APP_CONFIG.AUTH_BASE || (window.APP_CONFIG.API_BASE && window.APP_CONFIG.API_BASE.replace(/\/$/,'') + '/api/auth'))) || (window.AUTH_BASE || (getApiHost().replace(/\/$/,'') + '/api/auth'));
+}
+
+
