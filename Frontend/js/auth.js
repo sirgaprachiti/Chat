@@ -359,6 +359,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Registration handler
   if (regForm) {
+    // Put this above your registration handler (inside DOMContentLoaded)
+const RESEND_COOLDOWN_SECS = 60;
+let resendCooldownTimer = 0;
+let resendIntervalId = null;
+
+function startResendCooldown() {
+  resendCooldownTimer = RESEND_COOLDOWN_SECS;
+  updateResendUi();
+  if (resendIntervalId) clearInterval(resendIntervalId);
+  resendIntervalId = setInterval(() => {
+    resendCooldownTimer -= 1;
+    updateResendUi();
+    if (resendCooldownTimer <= 0) {
+      clearInterval(resendIntervalId);
+      resendIntervalId = null;
+    }
+  }, 1000);
+}
+
+function updateResendUi() {
+  const resendBtn = document.getElementById('resendBtn');
+  const resendStatus = document.getElementById('resendStatus');
+  if (!resendBtn) return;
+  if (resendCooldownTimer > 0) {
+    resendBtn.disabled = true;
+    resendBtn.textContent = `Resend (${resendCooldownTimer}s)`;
+    if (resendStatus) { resendStatus.textContent = 'Please wait before resending.'; resendStatus.style.color = '#666'; }
+  } else {
+    resendBtn.disabled = false;
+    resendBtn.textContent = 'Resend verification email';
+    if (resendStatus) { resendStatus.textContent = ''; }
+  }
+}
+
+function showResendUI(emailValue) {
+  const resendWrap = document.getElementById('resendWrap');
+  const resendBtn = document.getElementById('resendBtn');
+  if (!resendWrap) return;
+  resendWrap.style.display = '';
+  if (resendBtn) resendBtn.dataset.email = emailValue || '';
+  updateResendUi();
+}
+
     regForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const username = document.getElementById("username").value.trim();
@@ -385,10 +428,12 @@ document.addEventListener('DOMContentLoaded', () => {
             showResendUI(email);
           }
         }
-      } catch (err) {
+      } 
+      catch (err) {
         msgEl.style.color = "red";
         msgEl.textContent = "Network error";
       }
+      
     });
   }
 

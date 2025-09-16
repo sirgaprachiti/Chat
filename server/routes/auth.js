@@ -13,11 +13,59 @@ const sendResetEmail = require('../utils/sendResetEmail'); // create this file
 const JWT_SECRET = process.env.JWT_SECRET || 'change_this_secret';
 
 // POST /api/auth/signup
+// router.post('/signup', async (req, res) => {
+//   try {
+//     const { username, email, password } = req.body;
+//     if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
+//     if (!validator.isEmail(String(email))) return res.status(400).json({ error: 'Invalid email format' });
+
+//     const normalized = validator.normalizeEmail(email) || email.toLowerCase().trim();
+
+//     // check if exists
+//     if (await User.findOne({ email: normalized })) {
+//       return res.status(409).json({ error: 'Email already registered' });
+//     }
+
+//     const verifyToken = crypto.randomBytes(24).toString('hex');
+//     console.log('SIGNUP -> generated verifyToken:', verifyToken);
+//     const verifyExpires = Date.now() + 24 * 60 * 60 * 1000; // 24h
+
+//     const u = new User({
+//       username: username.trim(),
+//       email: normalized,
+//       emailVerified: false,
+//       emailVerifyToken: verifyToken,
+//       emailVerifyExpires: verifyExpires
+//     });
+
+//     await u.setPassword(password);
+//     await u.save();
+
+//     // try to send verification email (don't fail signup on mail error)
+//     try {
+//       await sendVerificationEmail(u.email, verifyToken);
+//     } catch (err) {
+//       console.error('Failed sending verification email', err);
+//       // optionally: inform user but still allow account creation
+//     }
+
+//     return res.json({ message: 'Registered successfully. Please check your email for verification link.' });
+//   } catch (err) {
+//     console.error('signup error', err);
+//     return res.status(500).json({ error: 'Server error' });
+//   }
+// });
+
+// POST /api/auth/signup
 router.post('/signup', async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
-    if (!validator.isEmail(String(email))) return res.status(400).json({ error: 'Invalid email format' });
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
+    if (!validator.isEmail(String(email))) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
 
     const normalized = validator.normalizeEmail(email) || email.toLowerCase().trim();
 
@@ -27,7 +75,6 @@ router.post('/signup', async (req, res) => {
     }
 
     const verifyToken = crypto.randomBytes(24).toString('hex');
-    console.log('SIGNUP -> generated verifyToken:', verifyToken);
     const verifyExpires = Date.now() + 24 * 60 * 60 * 1000; // 24h
 
     const u = new User({
@@ -41,20 +88,23 @@ router.post('/signup', async (req, res) => {
     await u.setPassword(password);
     await u.save();
 
-    // try to send verification email (don't fail signup on mail error)
+    // try to send verification email
     try {
       await sendVerificationEmail(u.email, verifyToken);
     } catch (err) {
       console.error('Failed sending verification email', err);
-      // optionally: inform user but still allow account creation
+      // still return success, account is created
     }
 
-    return res.json({ message: 'Registered successfully. Please check your email for verification link.' });
+    return res.status(201).json({
+      message: 'Registered successfully. Please check your email for verification link.'
+    });
   } catch (err) {
     console.error('signup error', err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // GET /api/auth/verify-email?token=...
 router.get('/verify-email', async (req, res) => {

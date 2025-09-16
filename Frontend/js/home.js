@@ -16,13 +16,8 @@ if (!token || !user) {
 }
 renderUserAvatar("meLabel", user);
 
-// -------- Socket init (create but do NOT connect until token attached) ----------
-/*
-  Important:
-  - We create socket with autoConnect: false so it doesn't attempt handshake before we attach token.
-  - Use transports polling + websocket for more reliable handshake.
-  - If token missing, redirect to login (you already check that above)
-*/
+
+
 const SOCKET_ORIGIN = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || (window.SOCKET_BASE) || API_BASE || 'http://localhost:5000';
 
 // create socket but don't connect yet
