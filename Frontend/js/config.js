@@ -82,7 +82,7 @@
 // Frontend/js/config.js
 (function() {
   const defaultHost = 'http://localhost:5000';
-  const prodHost ="https://chat-vkv3.onrender.com";
+  const prodHost ="https://chat-server-8310.onrender.com";
 // 'https://chat-1-2ru.onrender.com'; // your backend on Render
 
   // detect if running on Render (any *.onrender.com frontend)
