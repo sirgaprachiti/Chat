@@ -1,5 +1,3 @@
-
-
 // origin for HTTP API (no trailing path)
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || 'http://localhost:5000';
 // socket origin (used when calling io(...))
@@ -7,29 +5,106 @@ const SOCKET_BASE = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || API_
 // AUTH_BASE is the REST namespace for authentication endpoints
 const AUTH_BASE = (window.APP_CONFIG && window.APP_CONFIG.AUTH_BASE) || (API_BASE.replace(/\/$/, '') + '/api/auth');
 
-const token = localStorage.getItem("token");
-const user = JSON.parse(localStorage.getItem("user") || "null");
-// const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || "http://localhost:5000/api/auth";
+// NOTE: we avoid reading token/user once and reusing stale variables.
+// Read from localStorage when needed to ensure latest values.
+function getToken() {
+  return localStorage.getItem('token');
+}
+function getLocalUser() {
+  try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+}
 
-if (!token || !user) {
+// Redirect to login if no token/user (keep your existing behavior)
+if (!getToken() || !getLocalUser()) {
   window.location = "index.html";
 }
-renderUserAvatar("meLabel", user);
 
+// Render avatar from the latest stored user
+renderUserAvatar("meLabel", getLocalUser());
 
-
+// Build socket origin (use config if present)
 const SOCKET_ORIGIN = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || (window.SOCKET_BASE) || API_BASE || 'http://localhost:5000';
 
 // create socket but don't connect yet
 const socket = io(SOCKET_ORIGIN, { autoConnect: false, transports: ['polling', 'websocket'] });
 window.socket = socket; // expose for debug
 
-// attach handlers (only once)
+// Helper: attach token to socket.auth and connect (safe to call multiple times)
+function safeConnectSocket() {
+  const token = getToken();
+  if (!token) {
+    console.warn('safeConnectSocket: no token available; skipping socket connect.');
+    return;
+  }
+
+  // Attach token to handshake auth so server can validate during connection
+  socket.auth = { token };
+
+  // Connect only if not already connected
+  if (!socket.connected) {
+    console.log('safeConnectSocket: connecting socket to', SOCKET_ORIGIN);
+    socket.connect();
+  } else {
+    console.log('safeConnectSocket: socket already connected');
+  }
+}
+
+// Ensure we only emit user:online when a valid userId exists.
+// Read fresh user from localStorage in case it was updated after login.
 socket.on('connect', () => {
   console.log('socket connected, id=', socket.id);
+
+  const user = getLocalUser();
   const uid = String(user?._id ?? user?.id ?? '').trim();
-  if (uid) socket.emit('user:online', { userId: uid });
+
+  if (uid) {
+    console.log('emitting user:online with userId=', uid);
+    socket.emit('user:online', { userId: uid });
+  } else {
+    // Don't emit an empty user:online
+    console.warn('user:online not emitted because no valid userId found in localStorage');
+  }
 });
+
+// lifecycle logging
+socket.on('disconnect', (reason) => console.log('Socket disconnected', socket.id, 'reason=', reason));
+socket.on('connect_error', (err) => console.error('socket connect_error', err));
+socket.on('error', (err) => console.error('socket error', err));
+
+// Attempt to connect now (safeConnectSocket will skip if no token)
+safeConnectSocket();
+
+
+// // origin for HTTP API (no trailing path)
+// const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || 'http://localhost:5000';
+// // socket origin (used when calling io(...))
+// const SOCKET_BASE = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || API_BASE;
+// // AUTH_BASE is the REST namespace for authentication endpoints
+// const AUTH_BASE = (window.APP_CONFIG && window.APP_CONFIG.AUTH_BASE) || (API_BASE.replace(/\/$/, '') + '/api/auth');
+
+// const token = localStorage.getItem("token");
+// const user = JSON.parse(localStorage.getItem("user") || "null");
+// // const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || "http://localhost:5000/api/auth";
+
+// if (!token || !user) {
+//   window.location = "index.html";
+// }
+// renderUserAvatar("meLabel", user);
+
+
+
+// const SOCKET_ORIGIN = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || (window.SOCKET_BASE) || API_BASE || 'http://localhost:5000';
+
+// // create socket but don't connect yet
+// const socket = io(SOCKET_ORIGIN, { autoConnect: false, transports: ['polling', 'websocket'] });
+// window.socket = socket; // expose for debug
+
+// // attach handlers (only once)
+// socket.on('connect', () => {
+//   console.log('socket connected, id=', socket.id);
+//   const uid = String(user?._id ?? user?.id ?? '').trim();
+//   if (uid) socket.emit('user:online', { userId: uid });
+// });
 
 socket.on('disconnect', (reason) => console.log('socket disconnected, reason=', reason));
 
