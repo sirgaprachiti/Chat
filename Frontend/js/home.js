@@ -1,5 +1,8 @@
 // origin for HTTP API (no trailing path)
-const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || 'http://localhost:5000';
+const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) 
+  || 'https://chat-server-8310.onrender.com';
+
+// const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || 'http://localhost:5000';
 // socket origin (used when calling io(...))
 const SOCKET_BASE = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || API_BASE;
 // AUTH_BASE is the REST namespace for authentication endpoints
@@ -666,7 +669,8 @@ async function loadUsers() {
   try {
     const base = (window.APP_CONFIG && (window.APP_CONFIG.AUTH_BASE || window.APP_CONFIG.API_BASE)) || (window.AUTH_BASE || API_BASE);
 const url = base.replace(/\/$/, '') + '/users';
-const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+// const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } });
 
     // // const res = await fetch(`${API_BASE}/api/auth/users`, {
     //   headers: { Authorization: `Bearer ${token}` }
