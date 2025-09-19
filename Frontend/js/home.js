@@ -1046,6 +1046,7 @@ function scrollChatToBottom() {
   box.scrollTop = box.scrollHeight + 100;
 }
 
+
 // Fetch a protected GridFS file and return { blob, contentType }
 // API_BASE should be set to your API base, e.g. "/api"
 async function fetchProtectedFile(imageId) {
@@ -1067,6 +1068,27 @@ const url = host.replace(/\/$/, '') + `/api/chat/image/${encodeURIComponent(imag
   return { blob, contentType };
 }
 // create element for a file (image/pdf/other)
+async function fetchProtectedFile(imageId) {
+  const host = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || API_BASE;
+  const url = host.replace(/\/$/, '') + `/api/chat/image/${encodeURIComponent(imageId)}`;
+
+  const token = localStorage.getItem("token") || "";
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch file: ${res.status}`);
+  }
+
+  const contentType = res.headers.get("Content-Type") || "";
+  const blob = await res.blob();
+  return { blob, contentType };
+}
+
 async function renderFileInBubble(bubbleEl, imageId) {
   try {
     const { blob, contentType } = await fetchProtectedFile(imageId);
