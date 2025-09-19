@@ -8,8 +8,7 @@ const SOCKET_BASE = (window.APP_CONFIG && window.APP_CONFIG.SOCKET_BASE) || API_
 // AUTH_BASE is the REST namespace for authentication endpoints
 const AUTH_BASE = (window.APP_CONFIG && window.APP_CONFIG.AUTH_BASE) || (API_BASE.replace(/\/$/, '') + '/api/auth');
 
-// NOTE: we avoid reading token/user once and reusing stale variables.
-// Read from localStorage when needed to ensure latest values.
+
 function getToken() {
   return localStorage.getItem('token');
 }
@@ -22,6 +21,13 @@ if (!getToken() || !getLocalUser()) {
   window.location = "index.html";
 }
 
+const token = getToken();
+const user = getLocalUser();
+
+if (!token || !user) {
+  console.error("No token or user found. Redirecting to login.");
+  window.location = "index.html"; // or "login.html" depending on your app
+}
 // Render avatar from the latest stored user
 renderUserAvatar("meLabel", getLocalUser());
 
